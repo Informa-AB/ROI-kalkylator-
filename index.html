@@ -386,78 +386,25 @@
       );
     }
 
-    // ────────── External calculator ────────────────────────────────────────────
+    // ── External calculator ───────────────────────────────────────────────────
     function ExternalCalc() {
+      const [extraMeet, setExtraMeet] = useLS("ext_extraMeet", 10);
       const [orderVal,  setOrderVal]  = useLS("ext_orderVal",  250000);
-      const [curMeet,   setCurMeet]   = useLS("ext_curMeet",   10);
       const [closeRate, setCloseRate] = useLS("ext_closeRate", 15);
-      const [extraMeet, setExtraMeet] = useLS("ext_extraMeet", 15);
-      const [cost,      setCost]      = useLS("ext_cost",      35000);
-      const [showCost,  setShowCost]  = useState(false);
-      const [toast,     setToast]     = useState(null);
+      const [email,     setEmail]     = useState("");
+      const [submitted, setSubmitted] = useState(false);
 
-      // Parse URL hash on mount
-      useEffect(() => {
-        try {
-          const hash = location.hash;
-          if (hash.startsWith("#ext=")) {
-            const d = JSON.parse(atob(hash.slice(5)));
-            if (d.orderVal  !== undefined) setOrderVal(d.orderVal);
-            if (d.curMeet   !== undefined) setCurMeet(d.curMeet);
-            if (d.closeRate !== undefined) setCloseRate(d.closeRate);
-            if (d.extraMeet !== undefined) setExtraMeet(d.extraMeet);
-            if (d.cost      !== undefined) setCost(d.cost);
-            history.replaceState(null, "", location.pathname + location.search);
-          }
-        } catch {}
-      }, []);
-
-      const revenueToday   = curMeet * (closeRate/100) * orderVal;
-      const extraMonthly   = extraMeet * (closeRate/100) * orderVal;
-      const extraYearly    = extraMonthly * 12;
-      const revWithInforma = revenueToday + extraMonthly;
-      const roi            = cost > 0 ? ((extraMonthly - cost) / cost) * 100 : 0;
-      const revPerMeet     = (closeRate/100) * orderVal;
-      const payback        = revPerMeet > 0 ? Math.ceil(cost / revPerMeet) : "–";
+      const extraMonthly = extraMeet * (closeRate / 100) * orderVal;
+      const extraYearly  = extraMonthly * 12;
+      const extraDealsYr = Math.round(extraMeet * (closeRate / 100) * 12);
 
       const aMonth = useCountUp(extraMonthly);
       const aYear  = useCountUp(extraYearly);
-      const aROI   = useCountUp(Math.max(0, Math.round(roi)));
+      const aDeals = useCountUp(extraDealsYr);
 
-      const chartData = [
-        { name:"Idag",        value: Math.round(revenueToday)   },
-        { name:"Med Informa", value: Math.round(revWithInforma) },
-      ];
-
-      const handleCopy = () => {
-        const t = [
-          "══════════════════════════════════════",
-          "  INFORMA – ROI-kalkylation",
-          "══════════════════════════════════════",
-          "Ordervärde:            " + sek(orderVal) + " kr",
-          "Möten/månad (idag):    " + curMeet + " st",
-          "Avslutningsgrad:       " + closeRate + "%",
-          "Extra möten (Informa): " + extraMeet + " st/mån",
-          "Månadsavgift:          " + sek(cost) + " kr",
-          "",
-          "Extra intäkter/månad:  " + sek(extraMonthly) + " kr",
-          "Extra intäkter/år:     " + sek(extraYearly) + " kr",
-          "ROI:                   " + Math.round(roi) + "%",
-          "Payback efter:         " + payback + " möten",
-          "══════════════════════════════════════",
-          "Informa – Vi bygger försäljning som skapar tillväxt",
-          "https://informa.se",
-        ].join("\n");
-        navigator.clipboard.writeText(t);
-        setToast("✓ Kalkylation kopierad!");
-      };
-
-      const handleShare = () => {
-        const data = { orderVal, curMeet, closeRate, extraMeet, cost };
-        const hash = btoa(JSON.stringify(data));
-        const url  = location.href.split("#")[0] + "#ext=" + hash;
-        navigator.clipboard.writeText(url);
-        setToast("✓ Delningslänk kopierad!");
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        setSubmitted(true);
       };
 
       const card = {
@@ -468,116 +415,137 @@
 
       return (
         <div>
-          {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
-
           <div className="print-header">
             <div style={{ fontSize:"2rem", fontWeight:700, color:PINK }}>Informa</div>
-            <div style={{ fontSize:"1rem", color:"#6B7280" }}>ROI-kalkylation · {new Date().toLocaleDateString("sv-SE")}</div>
+            <div style={{ fontSize:"1rem", color:"#6B7280" }}>M&#246;tesbokningskalkylator &#183; {new Date().toLocaleDateString("sv-SE")}</div>
           </div>
 
           <div style={{ textAlign:"center", marginBottom:"2.75rem" }}>
             <h1 style={{ fontFamily:"'Playfair Display',serif", fontSize:"clamp(1.85rem,5vw,3.1rem)",
               fontWeight:900, color:"#111", margin:"0 0 1rem", lineHeight:1.15 }}>
-              Vad är fler möten värda för er?
+              R&#228;kna p&#229; vad bra m&#246;tesbokning<br />kan g&#246;ra f&#246;r dig
             </h1>
-            <p style={{ color:"#6B7280", fontSize:"1.05rem", maxWidth:560, margin:"0 auto", lineHeight:1.7 }}>
-              Räkna ut hur mycket extra intäkter kvalificerade säljmöten kan generera för ert företag.
+            <p style={{ color:"#6B7280", fontSize:"1.05rem", maxWidth:540, margin:"0 auto", lineHeight:1.7 }}>
+              Justera p&#229; slidrarna och se direkt vad fler kvalificerade s&#228;ljm&#246;ten
+              kan vara v&#228;rda f&#246;r ditt f&#246;retag &#8212; per m&#229;nad och per &#229;r.
             </p>
           </div>
 
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(310px,1fr))", gap:"1.5rem", marginBottom:"2.25rem" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(310px,1fr))", gap:"1.5rem", marginBottom:"2rem" }}>
 
+            {/* ── Inputs ── */}
             <div style={card}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.625rem" }}>
-                <h2 style={{ fontFamily:"'Playfair Display',serif", fontWeight:800, fontSize:"1.2rem", color:"#111", margin:0 }}>Era förutsättningar</h2>
-                <button type="button" className="no-print" onClick={() => setShowCost(!showCost)} title="Justera månadsavgift"
-                  style={{ background: showCost ? PINK+"15" : "none", border: showCost ? "1px solid "+PINK+"40" : "1px solid transparent",
-                    borderRadius:"0.5rem", cursor:"pointer", fontSize:"1.2rem", padding:"0.25rem 0.5rem", color: showCost ? PINK : "#9CA3AF" }}>
-                  &#9881;&#65039;
-                </button>
+              <h2 style={{ fontFamily:"'Playfair Display',serif", fontWeight:800, fontSize:"1.2rem", color:"#111", margin:"0 0 1.75rem" }}>
+                Dina f&#246;ruts&#228;ttningar
+              </h2>
+              <SliderInput
+                label="Extra m&#246;ten per m&#229;nad som Informa genererar"
+                value={extraMeet} min={1} max={50} onChange={setExtraMeet} suffix="st" />
+              <SliderInput
+                label="Genomsnittligt ordervärde"
+                value={orderVal} min={10000} max={5000000} step={10000} onChange={setOrderVal} suffix="kr" />
+              <SliderInput
+                label="Andel m&#246;ten som leder till aff&#228;r"
+                value={closeRate} min={1} max={50} onChange={setCloseRate} suffix="%" />
+
+              <div style={{ marginTop:"1.5rem", background:"#F9FAFB", borderRadius:"0.875rem",
+                padding:"1rem 1.125rem", border:"1px solid #E5E7EB" }}>
+                <p style={{ margin:0, fontSize:"0.8rem", color:"#6B7280", lineHeight:1.6 }}>
+                  <strong style={{ color:"#374151" }}>S&#229; h&#228;r r&#228;knar vi:</strong><br />
+                  {extraMeet} m&#246;ten &#215; {closeRate}% avslutningsgrad = <strong>{Math.round(extraMeet*(closeRate/100)*10)/10} nya aff&#228;rer/m&#229;n</strong>
+      2           {" "}&#215; {sek(orderVal)} kr = <strong style={{ color:PINK }}>{sek(extraMonthly)} kr/m&#229;n</strong>
+                </p>
               </div>
-
-              {showCost && (
-                <div style={{ background:PINK+"0D", border:"1px solid "+PINK+"30", borderRadius:"0.875rem", padding:"1rem 1.125rem", marginBottom:"1.5rem" }}>
-                  <label style={{ display:"block", fontSize:"0.78rem", fontWeight:700, color:"#374151", marginBottom:"0.4rem", textTransform:"uppercase", letterSpacing:"0.05em" }}>
-                    Informas månadsavgift (kr)
-                  </label>
-                  <input type="number" value={cost} onChange={e => setCost(Math.max(0, Number(e.target.value)))}
-                    style={{ display:"block", width:"100%", padding:"0.55rem 0.875rem", borderRadius:"0.625rem",
-                      border:"1.5px solid "+PINK+"44", fontSize:"1rem", fontFamily:"inherit", outline:"none",
-                      boxSizing:"border-box", color:"#111" }}
-                  />
-                </div>
-              )}
-
-              <SliderInput label="Genomsnittligt ordervärde" value={orderVal} min={10000} max={5000000} step={10000} onChange={setOrderVal} suffix="kr" />
-              <SliderInput label="Antal säljmöten ni bokar idag per månad" value={curMeet} min={0} max={100} onChange={setCurMeet} suffix="st" />
-              <SliderInput label="Andel möten som leder till affär" value={closeRate} min={1} max={50} onChange={setCloseRate} suffix="%" />
-              <SliderInput label="Antal extra möten per månad med Informa" value={extraMeet} min={5} max={50} onChange={setExtraMeet} suffix="st" />
             </div>
 
+            {/* ── Results ── */}
             <div style={card}>
-              <h2 style={{ fontFamily:"'Playfair Display',serif", fontWeight:800, fontSize:"1.2rem", color:"#111", margin:"0 0 1.5rem" }}>Er potential</h2>
+              <h2 style={{ fontFamily:"'Playfair Display',serif", fontWeight:800, fontSize:"1.2rem", color:"#111", margin:"0 0 1.5rem" }}>
+                Din potential med Informa
+              </h2>
 
-              <div style={{ background:"#F4FBF4", borderRadius:"1rem", padding:"1.1rem 1.25rem", marginBottom:"0.875rem", border:"1px solid #D1EDCF" }}>
-                <p style={{ margin:"0 0 0.2rem", fontSize:"0.72rem", color:"#9CA3AF", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.06em" }}>Extra intäkter per månad</p>
-                <p style={{ margin:0, fontSize:"2.1rem", fontWeight:700, color:GREEN, letterSpacing:"-0.02em" }}>{sek(aMonth)} kr</p>
-              </div>
-
-              <div style={{ background:PINK+"0D", border:"2px solid "+PINK+"30", borderRadius:"1rem", padding:"1.25rem", marginBottom:"1.25rem" }}>
-                <p style={{ margin:"0 0 0.2rem", fontSize:"0.72rem", color:PINK, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em" }}>Extra intäkter per år</p>
-                <p style={{ margin:0, fontSize:"2.75rem", fontWeight:900, color:PINK, letterSpacing:"-0.03em", fontFamily:"'Playfair Display',serif" }}>
+              {/* Hero: yearly */}
+              <div style={{ background:PINK+"0D", border:"2px solid "+PINK+"30", borderRadius:"1.25rem",
+                padding:"1.5rem 1.75rem", marginBottom:"1rem", textAlign:"center" }}>
+                <p style={{ margin:"0 0 0.3rem", fontSize:"0.72rem", color:PINK, fontWeight:700,
+                  textTransform:"uppercase", letterSpacing:"0.06em" }}>Extra int&#228;kter per &#229;r</p>
+                <p style={{ margin:0, fontSize:"3rem", fontWeight:900, color:PINK,
+                  letterSpacing:"-0.03em", fontFamily:"'Playfair Display',serif", lineHeight:1.1 }}>
                   {sek(aYear)} kr
                 </p>
               </div>
 
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0.75rem", marginBottom:"1.375rem" }}>
-                <div style={{ background:"#FAFAFA", borderRadius:"0.875rem", padding:"1rem", textAlign:"center", border:"1px solid #EBEBEB" }}>
-                  <p style={{ margin:"0 0 0.3rem", fontSize:"0.7rem", color:"#9CA3AF", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>ROI</p>
-                  <p style={{ margin:0, fontSize:"1.6rem", fontWeight:800, color: roi >= 0 ? GREEN : "#EF4444" }}>{aROI}%</p>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0.75rem", marginBottom:"1.5rem" }}>
+                <div style={{ background:"#F4FBF4", borderRadius:"1rem", padding:"1rem",
+                  textAlign:"center", border:"1px solid #D1EDCF" }}>
+                  <p style={{ margin:"0 0 0.25rem", fontSize:"0.68rem", color:"#9CA3AF",
+                    fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>Per m&#229;nad</p>
+                  <p style={{ margin:0, fontSize:"1.45rem", fontWeight:800, color:GREEN }}>{sek(aMonth)} kr</p>
                 </div>
-                <div style={{ background:"#FAFAFA", borderRadius:"0.875rem", padding:"1rem", textAlign:"center", border:"1px solid #EBEBEB" }}>
-                  <p style={{ margin:"0 0 0.3rem", fontSize:"0.7rem", color:"#9CA3AF", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>Payback efter</p>
-                  <p style={{ margin:0, fontSize:"1.6rem", fontWeight:800, color:"#111" }}>
-                    {payback} <span style={{ fontSize:"0.85rem", fontWeight:500, color:"#6B7280" }}>möten</span>
+                <div style={{ background:"#FAFAFA", borderRadius:"1rem", padding:"1rem",
+                  textAlign:"center", border:"1px solid #EBEBEB" }}>
+                  <p style={{ margin:"0 0 0.25rem", fontSize:"0.68rem", color:"#9CA3AF",
+                    fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>Nya aff&#228;rer / &#229;r</p>
+                  <p style={{ margin:0, fontSize:"1.45rem", fontWeight:800, color:"#111" }}>
+                    {aDeals} <span style={{ fontSize:"0.82rem", fontWeight:500, color:"#6B7280" }}>st</span>
                   </p>
                 </div>
               </div>
 
-              <p style={{ margin:"0 0 0.5rem", fontSize:"0.78rem", color:"#9CA3AF", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>Intäktsjämförelse / månad</p>
-              <BarChartSVG data={chartData} />
+              {/* Email lead gen */}
+              {!submitted ? (
+                <form onSubmit={handleSubmit}
+                  style={{ background:"#FAFAFA", borderRadius:"1rem", padding:"1.25rem 1.375rem",
+                    border:"1px solid #E5E7EB" }}>
+                  <p style={{ margin:"0 0 0.35rem", fontSize:"0.95rem", fontWeight:700, color:"#111" }}>
+                    &#128140; F&#229; din kalkylation i inkorgen
+                  </p>
+                  <p style={{ margin:"0 0 1rem", fontSize:"0.8rem", color:"#6B7280", lineHeight:1.55 }}>
+                    Ange din e-post s&#229; skickar vi en sammanfattning &#8212; plus hur vi kan hj&#228;lpa
+                    dig n&#229; dessa siffror.
+                  </p>
+                  <div style={{ display:"flex", gap:"0.5rem", flexWrap:"wrap" }}>
+                    <input
+                      type="email" required
+                      placeholder="din@foretag.se"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      style={{ flex:1, minWidth:160, padding:"0.7rem 1rem", borderRadius:"0.75rem",
+                        border:"1.5px solid #D1D5DB", fontSize:"0.9rem", fontFamily:"inherit",
+                        outline:"none", boxSizing:"border-box" }}
+                    />
+                    <button type="submit"
+                      style={{ padding:"0.7rem 1.25rem", background:PINK, color:"#fff", border:"none",
+                        borderRadius:"0.75rem", fontWeight:700, fontSize:"0.9rem", cursor:"pointer",
+                        fontFamily:"inherit", boxShadow:"0 4px 14px "+PINK+"44", whiteSpace:"nowrap" }}>
+                      Skicka &#8594;
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div style={{ background:"#F4FBF4", borderRadius:"1rem", padding:"1.375rem",
+                  border:"1px solid #D1EDCF", textAlign:"center" }}>
+                  <p style={{ margin:"0 0 0.4rem", fontSize:"1.4rem" }}>&#10003;</p>
+                  <p style={{ margin:0, fontSize:"0.95rem", fontWeight:700, color:"#166534" }}>
+                    Tack! Vi h&#246;r av oss snart.
+                  </p>
+                  <p style={{ margin:"0.35rem 0 0", fontSize:"0.8rem", color:"#6B7280" }}>
+                    Skickades till {email}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
-          <div style={{ textAlign:"center" }}>
-            <div className="cta-row no-print" style={{ display:"flex", flexWrap:"wrap", gap:"0.75rem", justifyContent:"center", marginBottom:"1.5rem" }}>
-              <a href="https://informa.se" target="_blank" rel="noopener noreferrer"
-                style={{ display:"inline-block", padding:"1rem 2.75rem", background:PINK, color:"#fff",
-                  borderRadius:"2rem", textDecoration:"none", fontWeight:700, fontSize:"1rem",
-                  boxShadow:"0 8px 28px "+PINK+"44" }}>
-                Vill du veta mer? Boka ett samtal &#8594;
-              </a>
-              <button type="button" onClick={handleCopy}
-                style={{ padding:"1rem 1.75rem", background:"#fff", color:"#374151",
-                  border:"1.5px solid #D1D5DB", borderRadius:"2rem", fontSize:"1rem", fontWeight:600,
-                  cursor:"pointer", fontFamily:"inherit" }}>
-                Kopiera kalkylation
-              </button>
-              <button type="button" onClick={handleShare}
-                style={{ padding:"1rem 1.75rem", background:"#fff", color:"#374151",
-                  border:"1.5px solid #D1D5DB", borderRadius:"2rem", fontSize:"1rem", fontWeight:600,
-                  cursor:"pointer", fontFamily:"inherit" }}>
-                &#128279; Dela länk
-              </button>
-              <button type="button" onClick={() => window.print()}
-                style={{ padding:"1rem 1.75rem", background:"#fff", color:"#374151",
-                  border:"1.5px solid #D1D5DB", borderRadius:"2rem", fontSize:"1rem", fontWeight:600,
-                  cursor:"pointer", fontFamily:"inherit" }}>
-                &#128438; Skriv ut / PDF
-              </button>
-            </div>
-            <p style={{ color:"#ABAEB5", fontSize:"0.85rem", fontStyle:"italic" }}>
-              Informa &#8211; Vi bygger försäljning som skapar tillväxt
+          <div style={{ textAlign:"center" }} className="no-print">
+            <a href="https://informa.se" target="_blank" rel="noopener noreferrer"
+              style={{ display:"inline-block", padding:"1rem 2.75rem", background:PINK, color:"#fff",
+                borderRadius:"2rem", textDecoration:"none", fontWeight:700, fontSize:"1rem",
+                boxShadow:"0 8px 28px "+PINK+"44" }}>
+              Vill du veta mer? Boka ett samtal &#8594;
+            </a>
+            <p style={{ color:"#ABAEB5", fontSize:"0.85rem", fontStyle:"italic", marginTop:"1.5rem" }}>
+              Informa &#8211; Vi bygger f&#246;rs&#228;ljning som skapar tillv&#228;xt
             </p>
           </div>
         </div>
