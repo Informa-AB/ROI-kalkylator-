@@ -586,32 +586,37 @@
 
     // ────────── Internal calculator ──────────────────────────────────────────
     function InternalCalc() {
-      const [name,   setName]   = useLS("int_name",   "");
-      const [seller, setSeller] = useLS("int_seller", "");
-      const [branch, setBranch] = useLS("int_branch", "IT/SaaS");
-      const [meet,   setMeet]   = useLS("int_meet",   15);
-      const [price,  setPrice]  = useLS("int_price",  3500);
-      const [cLen,   setCLen]   = useLS("int_cLen",   12);
-      const [cCost,  setCCost]  = useLS("int_cCost",  1500);
-      const [toast,  setToast]  = useState(null);
+      const [name,       setName]       = useLS("int_name",       "");
+      const [seller,     setSeller]     = useLS("int_seller",      "");
+      const [branch,     setBranch]     = useLS("int_branch",      "IT/SaaS");
+      const [priceModel, setPriceModel] = useLS("int_model",       "per_meet");
+      const [cLen,       setCLen]       = useLS("int_cLen",         12);
+      const [startCost,  setStartCost]  = useLS("int_startCost",    0);
+      const [techFee,    setTechFee]    = useLS("int_techFee",     4800);
+      // Per-möte
+      const [meet,  setMeet]  = useLS("int_meet",   15);
+      const [price, setPrice] = useLS("int_price", 3500);
+      const [cCost, setCCost] = useLS("int_cCost", 1500);
+      // Timbaserad
+      const [hours, setHours] = useLS("int_hours",   20);
+      const [hRate, setHRate] = useLS("int_hRate",  500);
+      const [hCost, setHCost] = useLS("int_hCost",  250);
+      const [toast, setToast] = useState(null);
 
       const INDS = ["IT/SaaS","Industri","Bygg","Rekrytering","Finans","Hälsa/Pharma","Media","Konsult","Annan"];
+      const isPM = priceModel === "per_meet";
 
-      const monthlyRev     = meet * price;
-      const yearlyRev      = monthlyRev * 12;
-      const contractVal    = monthlyRev * cLen;
-      const marginPerMtg   = price - cCost;
-      const monthlyMargin  = marginPerMtg * meet;
-      const contractMargin = monthlyMargin * cLen;
-      const marginPct      = price > 0 ? (marginPerMtg / price) * 100 : 0;
-
-      const aMRev  = useCountUp(monthlyRev);
-      const aYRev  = useCountUp(yearlyRev);
-      const aCVal  = useCountUp(contractVal);
-      const aMPMtg = useCountUp(marginPerMtg);
-      const aMMarg = useCountUp(monthlyMargin);
-      const aCMarg = useCountUp(contractMargin);
-      const aMPct  = useCountUp(marginPct);
+      // ── Beräkningar ──────────────────────────────────────────────────────────
+      const baseRev      = isPM ? meet * price          : hours * hRate;
+      const baseCost     = isPM ? meet * cCost           : hours * hCost;
+      const unitMargin   = isPM ? price - cCost          : hRate - hCost;
+      const monthlyRev   = baseRev + techFee;
+      const monthlyMargin= (baseRev - baseCost) + techFee;   // teknikavgift = 100% marginal
+      const yearlyRev    = monthlyRev * 12;
+      const contractVal  = monthlyRev * cLen + startCost;
+      const contractMarg = monthlyMargin * cLen + startCost; // startcost antas 100% marginal
+      const marginPct    = monthlyRev > 0 ? (monthlyMargin / monthlyRev) * 100 : 0;
+      const unitLabel    = isPM ? "möte" : "timme";
 
       const score = marginPct >= 50
         ? { label:"Bra deal",  color:"#16A34A", bg:"#F0FDF4", border:"#86EFAC" }
@@ -619,41 +624,61 @@
           ? { label:"Okej deal", color:"#D97706", bg:"#FFFBEB", border:"#FCD34D" }
           : { label:"Svag deal", color:"#DC2626", bg:"#FEF2F2", border:"#FCA5A5" };
 
+      const aMonth = useCountUp(monthlyRev);
+      const aYear  = useCountUp(yearlyRev);
+      const aCVal  = useCountUp(contractVal);
+      const aUMarg = useCountUp(unitMargin);
+      const aMMarg = useCountUp(monthlyMargin);
+      const aCMarg = useCountUp(contractMarg);
+      const aMPct  = useCountUp(marginPct);
+      const aStart = useCountUp(startCost);
+
       const handleCopy = () => {
-        const sep = "═".repeat(38);
+        const sep = "\u2550".repeat(40);
+        const modelLines = isPM
+          ? ["Prismodell:          Per m\u00f6te",
+             "M\u00f6ten/m\u00e5nad:        " + meet + " st",
+             "Pris/m\u00f6te:          " + sek(price) + " kr",
+             "Kostnad/m\u00f6te:       " + sek(cCost) + " kr"]
+          : ["Prismodell:          Timpris",
+             "Timmar/m\u00e5nad:        " + hours + " tim",
+             "Timpris:             " + sek(hRate) + " kr",
+             "Kostnad/timme:       " + sek(hCost) + " kr"];
         const lines = [
           sep,
-          "  INFORMA – Intern kalkylation",
+          "  INFORMA \u2013 Intern kalkylation",
           sep,
-          name   ? ("Kund:               " + name)   : null,
-          seller ? ("Säljare:            " + seller) : null,
-          "Bransch:            " + branch,
-          "Datum:              " + new Date().toLocaleDateString("sv-SE"),
+          name   ? ("Kund:                " + name)   : null,
+          seller ? ("S\u00e4ljare:             " + seller) : null,
+          "Bransch:             " + branch,
+          "Datum:               " + new Date().toLocaleDateString("sv-SE"),
           "",
-          "Möten/månad:        " + meet + " st",
-          "Pris/möte:          " + sek(price) + " kr",
-          "Kostnad/möte:       " + sek(cCost) + " kr",
-          "Kontraktslängd:     " + cLen + " månader",
+        ].concat(modelLines).concat([
+          "Teknikavgift:        " + sek(techFee) + " kr/m\u00e5n",
+          "Startkostnad:        " + sek(startCost) + " kr (eng\u00e5ng)",
+          "Kontraktsl\u00e4ngd:      " + cLen + " m\u00e5nader",
           "",
-          "Månadsintäkt:       " + sek(monthlyRev) + " kr",
-          "Årsintäkt:          " + sek(yearlyRev) + " kr",
-          "Kontraktsvärde:     " + sek(contractVal) + " kr",
+          "M\u00e5nadsint\u00e4kt:        " + sek(monthlyRev) + " kr",
+          "\u00c5rsint\u00e4kt:            " + sek(yearlyRev) + " kr",
+          "Totalt kontraktv\u00e4rde: " + sek(contractVal) + " kr",
           "",
-          "Marginal/möte:      " + sek(marginPerMtg) + " kr",
-          "Marginal/månad:     " + sek(monthlyMargin) + " kr",
-          "Marginal/kontrakt:  " + sek(contractMargin) + " kr",
-          "Bruttomarginal:     " + Math.round(marginPct) + "%",
+          "Marginal/" + unitLabel + ":       " + sek(unitMargin) + " kr",
+          "Marginal/m\u00e5nad:      " + sek(monthlyMargin) + " kr",
+          "Marginal/kontrakt:   " + sek(contractMarg) + " kr",
+          "Bruttomarginal:      " + Math.round(marginPct) + "%",
           "",
           "Deal Score: " + score.label,
           sep,
-        ].filter(l => l !== null).join("\n");
+        ]).filter(l => l !== null).join("\n");
         navigator.clipboard.writeText(lines);
-        setToast("✓ Kalkylation kopierad!");
+        setToast("\u2713 Kalkylation kopierad!");
       };
 
       const handleReset = () => {
         setName(""); setSeller(""); setBranch("IT/SaaS");
-        setMeet(15); setPrice(3500); setCLen(12); setCCost(1500);
+        setCLen(12); setStartCost(0); setTechFee(4800);
+        setMeet(15); setPrice(3500); setCCost(1500);
+        setHours(20); setHRate(500); setHCost(250);
       };
 
       const card = {
@@ -670,7 +695,7 @@
       );
 
       const iBase = {
-        display:"block", width:"100%", padding:"0.625rem 0.875rem",
+        displey:"block", width:"100%", padding:"0.625rem 0.875rem",
         borderRadius:"0.625rem", border:"1.5px solid #E5E7EB",
         fontSize:"0.9rem", fontFamily:"inherit", outline:"none",
         color:"#111", boxSizing:"border-box", background:"#fff"
@@ -683,15 +708,35 @@
           <div className="print-header">
             <div style={{ fontSize:"2rem", fontWeight:700, color:PINK }}>Informa</div>
             <div style={{ fontSize:"1rem", color:"#6B7280" }}>
-              Intern kalkylation{name ? " · " + name : ""} · {new Date().toLocaleDateString("sv-SE")}
+              Intern kalkylation{name ? " \u00b7 " + name : ""} \u00b7 {new Date().toLocaleDateString("sv-SE")}
             </div>
           </div>
 
-          <div style={{ marginBottom:"2rem" }}>
+          <div style={{ marginBottom:"1.75rem" }}>
             <h1 style={{ fontFamily:"'Playfair Display',serif", fontSize:"clamp(1.5rem,3vw,2.25rem)", fontWeight:900, color:"#111", margin:"0 0 0.5rem" }}>
               Intern kalkylator
             </h1>
-            <p style={{ color:"#9CA3AF", fontSize:"0.875rem" }}>Beräkna kundvärde för Informa · Redo att klistra in i HubSpot</p>
+            <p style={{ color:"#9CA3AF", fontSize:"0.875rem" }}>Beräkna kundvärde för Informa \u00b7 Redo att klistra in i HubSpot</p>
+          </div>
+
+          {/* Prismodell-toggle */}
+          <div style={{ display:"flex", alignItems:"center", gap:"0.875rem", marginBottom:"1.75rem", flexWrap:"wrap" }}>
+            <span style={{ fontSize:"0.78rem", fontWeight:700, color:"#374151", textTransform:"uppercase", letterSpacing:"0.06em" }}>Prismodell:</span>
+            <div style={{ display:"flex", background:"#EFEFEF", borderRadius:"2rem", padding:"4px", gap:"2px" }}>
+              {[{id:"per_meet",label:"Per möte"},{id:"hourly",label:"Timpris"}].map(function(m) {
+                return (
+                  <button key={m.id} type="button" onClick={() => setPriceModel(m.id)}
+                    style={{ padding:"0.4rem 1.25rem", borderRadius:"2rem", border:"none",
+                      cursor:"pointer", fontWeight:700, fontSize:"0.84rem", fontFamily:"inherit",
+                      background: priceModel===m.id ? PINK : "transparent",
+                      color: priceModel===m.id ? "#fff" : "#6B7280",
+                      boxShadow: priceModel===m.id ? "0 2px 8px "+PINK+"44" : "none",
+                      transition:"all 0.18s" }}>
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(310px,1fr))", gap:"1.5rem" }}>
@@ -718,10 +763,33 @@
                 </select>
               </div>
 
-              <SliderInput label="Möten vi kan leverera per månad" value={meet} min={5} max={50} onChange={setMeet} suffix="st" />
-              <SliderInput label="Pris per möte" value={price} min={1000} max={10000} step={100} onChange={setPrice} suffix="kr" />
-              <SliderInput label="Uppskattad kontraktslängd" value={cLen} min={3} max={24} onChange={setCLen} suffix="mån" />
-              <SliderInput label="Kostnad för leverans per möte" value={cCost} min={500} max={5000} step={100} onChange={setCCost} suffix="kr" />
+              {/* Modellspecifika fält */}
+              <div style={{ borderTop:"1px solid #F0F0F0", paddingTop:"1.25rem", marginBottom:"0.25rem" }}>
+                <p style={{ margin:"0 0 1rem", fontSize:"0.78rem", fontWeight:700, color:"#374151", textTransform:"uppercase", letterSpacing:"0.05em" }}>
+                  {isPM ? "Mötesbaserad prissättning" : "Timbaserad prissättning"}
+                </p>
+                {isPM ? (
+                  <React.Fragment>
+                    <SliderInput label="Möten vi kan leverera per månad" value={meet} min={5} max={50} onChange={setMeet} suffix="st" />
+                    <SliderInput label="Pris per möte" value={price} min={1000} max={10000} step={100} onChange={setPrice} suffix="kr" />
+                    <SliderInput label="Kostnad för leverans per möte" value={cCost} min={500} max={5000} step={100} onChange={setCCost} suffix="kr" />
+                  </React.Fragment>
+                ) : (
+                  <React.Fragment>
+                    <SliderInput label="Timmar per månad" value={hours} min={5} max={160} step={5} onChange={setHours} suffix="tim" />
+                    <SliderInput label="Timpris" value={hRate} min={200} max={3000} step={50} onChange={setHRate} suffix="kr" />
+                    <SliderInput label="Kostnad per timme (leverans)" value={hCost} min={100} max={2000} step={50} onChange={setHCost} suffix="kr" />
+                  </React.Fragment>
+                )}
+              </div>
+
+              {/* Gemensamma fält */}
+              <div style={{ borderTop:"1px solid #F0F0F0", paddingTop:"1.25rem" }}>
+                <p style={{ margin:"0 0 1rem", fontSize:"0.78rem", fontWeight:700, color:"#374151", textTransform:"uppercase", letterSpacing:"0.05em" }}>Gemensamt</p>
+                <SliderInput label="Teknikavgift" value={techFee} min={0} max={15000} step={100} onChange={setTechFee} suffix="kr/mån" />
+                <SliderInput label="Startkostnad (engångsavgift)" value={startCost} min={0} max={50000} step={500} onChange={setStartCost} suffix="kr" />
+                <SliderInput label="Uppskattad kontraktslängd" value={cLen} min={3} max={24} onChange={setCLen} suffix="mån" />
+              </div>
             </div>
 
             <div style={{ display:"flex", flexDirection:"column", gap:"1rem" }}>
@@ -740,14 +808,15 @@
 
               <div style={card}>
                 <h3 style={{ fontFamily:"'Playfair Display',serif", fontWeight:700, fontSize:"1.05rem", color:"#111", margin:"0 0 0.75rem" }}>Intäkter</h3>
-                <Row label="Månadsintäkt" value={sek(aMRev) + " kr"} color={PINK} large={true} />
-                <Row label="Årsintäkt" value={sek(aYRev) + " kr"} />
+                <Row label={"Månadsintäkt (inkl. teknik)"} value={sek(aMonth) + " kr"} color={PINK} large={true} />
+                <Row label="Årsintäkt" value={sek(aYear) + " kr"} />
+                {startCost > 0 && <Row label="Startkostnad (engång)" value={sek(aStart) + " kr"} />}
                 <Row label="Totalt kontraktsvärde" value={sek(aCVal) + " kr"} large={true} />
               </div>
 
               <div style={card}>
                 <h3 style={{ fontFamily:"'Playfair Display',serif", fontWeight:700, fontSize:"1.05rem", color:"#111", margin:"0 0 0.75rem" }}>Marginaler</h3>
-                <Row label="Bruttomarginal per möte" value={sek(aMPMtg) + " kr"} />
+                <Row label={"Bruttomarginal per " + unitLabel} value={sek(aUMarg) + " kr"} />
                 <Row label="Bruttomarginal per månad" value={sek(aMMarg) + " kr"} color={GREEN} />
                 <Row label="Bruttomarginal per kontrakt" value={sek(aCMarg) + " kr"} color={GREEN} large={true} />
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:"0.75rem" }}>
