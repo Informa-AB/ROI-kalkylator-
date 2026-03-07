@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Informa ROI-kalkylator</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: #fff;
+      color: #111;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Slider */
+    .informa-slider {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 6px;
+      border-radius: 3px; outline: none;
+      cursor: pointer; display: block;
+    }
+    .informa-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #E8627C; cursor: pointer;
+      box-shadow: 0 2px 8px rgba(232,98,124,0.4);
+      border: 2.5px solid #fff;
+      transition: transform 0.1s;
+    }
+    .informa-slider::-webkit-slider-thumb:active { transform: scale(1.2); }
+    .informa-slider::-moz-range-thumb {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #E8627C; cursor: pointer;
+      border: 2.5px solid #fff;
+    }
+    .informa-slider::-moz-range-track  { height: 6px; border-radius: 3px; background: #DDDFE4; }
+    .informa-slider::-moz-range-progress { height: 6px; border-radius: 3px 0 0 3px; background: #E8627C; }
+
+    /* Number input – remove spinners */
+    .no-spin::-webkit-inner-spin-button,
+    .no-spin::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    .no-spin { -moz-appearance: textfield; }
+
+    /* Focus ring */
+    input:focus, select:focus {
+      border-color: #E8627C !important;
+      box-shadow: 0 0 0 3px rgba(232,98,124,0.13) !important;
+      outline: none;
+    }
+
+    /* Animations */
+    @keyframes fadeUp   { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes pinShake {
+      0%,100% { transform:translateX(0); }
+      15%  { transform:translateX(-9px); }  30%  { transform:translateX(8px); }
+      45%  { transform:translateX(-6px); }  60%  { transform:translateX(5px); }
+      75%  { transform:translateX(-3px); }  90%  { transform:translateX(2px); }
+    }
+    .tab-in { animation: fadeUp 0.3s ease both; }
+
+    /* Toast */
+    @keyframes toastIn  { from { opacity:0; transform:translateY(16px) scale(0.96); } to { opacity:1; transform:none; } }
+    @keyframes toastOut { from { opacity:1; } to { opacity:0; transform:translateY(8px); } }
+    .toast     { animation: toastIn  0.28s ease both; }
+    .toast-out { animation: toastOut 0.28s ease both; }
+
+    /* Print styles */
+    @media print {
+      .no-print { display: none !important; }
+      header    { display: none !important; }
+      body      { background: white; }
+      .tab-in   { animation: none !important; }
+      .print-header {
+        display: flex !important;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.75rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #E8627C;
+      }
+    }
+    .print-header { display: none; }
+
+    /* Mobile */
+    @media (max-width: 600px) {
+      .slider-row { flex-direction: column; align-items: stretch !important; gap: 0.5rem !important; }
+      .slider-number-wrap { justify-content: flex-end; }
+      .cta-row { flex-direction: column !important; }
+      .cta-row a, .cta-row button { width: 100% !important; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.24.4/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    const PINK  = "#E8627C";
+    const GREEN = "#4CAF50";
+
+    // ──────────────────────────────────────────────────────────────────────────
+    const sek = (n) =>
+      new Intl.NumberFormat("sv-SE").format(Math.round(n))
+        .replace(/\u00a0|\u202f|\u2009/g, " ");
+
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+    // ────────── localStorage hook ────────────────────────────────────────────
+    function useLS(key, init) {
+      const [val, setVal] = useState(() => {
+        try {
+          const s = localStorage.getItem(key);
+          return s !== null ? JSON.parse(s) : init;
+        } catch { return init; }
+      });
+      const set = useCallback((v) => {
+        setVal(v);
+        try { localStorage.setItem(key, JSON.stringify(v)); } catch {}
+      }, [key]);
+      return [val, set];
+    }
+
+    // ────────── Count-up animation ──────────────────────────────────────────────
+    function useCountUp(target, ms = 520) {
+      const [val, setVal]  = useState(target);
+      const fromRef        = useRef(target);
+      const rafRef         = useRef(null);
+      useEffect(() => {
+        const from = fromRef.current, to = target, t0 = performance.now();
+        cancelAnimationFrame(rafRef.current);
+        const tick = (now) => {
+          const p = Math.min((now - t0) / ms, 1);
+          const e = 1 - Math.pow(1 - p, 3);
+          setVal(Math.round(from + (to - from) * e));
+          if (p < 1) rafRef.current = requestAnimationFrame(tick);
+          else fromRef.current = to;
+        };
+        rafRef.current = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(rafRef.current);
+      }, [target]);
+      return val;
+    }
+
+    // ────────── Toast notification ─────────────────────────────────────────────────────────────────────────────
+    function Toast({ msg, onDone }) {
+      const [out, setOut] = useState(false);
+      useEffect(() => {
+        const t1 = setTimeout(() => setOut(true), 2200);
+        const t2 = setTimeout(onDone, 2500);
+        return () => { clearTimeout(t1); clearTimeout(t2); };
+      }, []);
+      return (
+        <div className={out ? "toast-out" : "toast"} style={{
+          position:"fixed", bottom:32, left:"50%", transform:"translateX(-50%)",
+          background:"#111", color:"#fff", padding:"0.7rem 1.5rem",
+          borderRadius:"2rem", fontSize:"0.9rem", fontWeight:600,
+          zIndex:9999, whiteSpace:"nowrap", boxShadow:"0 8px 32px rgba(0,0,0,0.18)"
+        }}>{msg}</div>
+      );
+    }
+
+    // ────────── SVG bar chart ──────────────────────────────────────────────────────
+    function BarChartSVG({ data }) {
+      const [tip, setTip] = useState(null);
+      const maxVal = Math.max(...data.map(d => d.value)) * 1.18 || 1;
+      const W = 320, H = 140, PL = 52, PB = 26;
+      const cW = W - PL - 8, cH = H - PB;
+      const barW = 64, slot = cW / data.length;
+      const yCoord = v => cH - (v / maxVal) * cH;
+      const ticks = [0, 0.25, 0.5, 0.75, 1];
+      const fmt = v => v === 0 ? "0" : v >= 1e6 ? `${(v/1e6).toFixed(1)}M` : `${Math.round(v/1e3)}k`;
+
+      return (
+        <div style={{ position:"relative", userSelect:"none" }}>
+          <svg viewBox={`0 0 ${W} ${H + 8}`} style={{ width:"100%", height:"auto", display:"block" }}>
+            {ticks.map((p, i) => {
+              const v = maxVal * p, y = yCoord(v);
+              return (
+                <g key={i}>
+                  <line x1={PL} y1={y} x2={W-8} y2={y} stroke="#F0F2F5" strokeWidth="1" />
+                  <text x={PL-4} y={y+4} textAnchor="end" fontSize="9" fill="#C4C8D1" fontFamily="inherit">{fmt(v)}</text>
+                </g>
+              );
+            })}
+            {data.map((d, i) => {
+              const cx = PL + slot * i + slot / 2;
+              const bH = maxVal > 0 ? Math.max((d.value / maxVal) * cH, d.value > 0 ? 3 : 0) : 0;
+              const by = yCoord(d.value);
+              const isHov = tip === i;
+              const color = i === 0 ? "#E5E7EB" : PINK;
+              return (
+                <g key={i} onMouseEnter={() => setTip(i)} onMouseLeave={() => setTip(null)} style={{ cursor:"default" }}>
+                  <rect x={cx-barW/2} y={by} width={barW} height={bH} rx="5" fill={color}
+                    opacity={isHov ? 0.82 : 1} style={{ transition:"opacity 0.15s" }} />
+                  {isHov && (
+                    <g>
+                      <rect x={cx-44} y={by-28} width={88} height={22} rx="5"
+                        fill="white" stroke="#E5E7EB" strokeWidth="1"
+                        style={{ filter:"drop-shadow(0 2px 6px rgba(0,0,0,0.1))" }} />
+                      <text x={cx} y={by-13} textAnchor="middle" fontSize="10" fill="#111"
+                        fontWeight="700" fontFamily="inherit">{sek(d.value)} kr</text>
+                    </g>
+                  )}
+                  <text x={cx} y={H+4} textAnchor="middle" fontSize="11" fill="#374151" fontFamily="inherit">{d.name}</text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+      );
+    }
+
+    // ────────── Decorative circles ──────────────────────────────────────────────
+    function BgCircles() {
+      const cs = [
+        { s:700, l:-260, t:-220, o:0.07  }, { s:460, l:"64%", t:-100, o:0.075 },
+        { s:560, l:"36%", t:"52%", o:0.05 }, { s:320, l:-110,  t:"70%", o:0.07  },
+        { s:250, l:"86%", t:"76%", o:0.08 }, { s:180, l:"54%", t:"18%", o:0.055 },
+        { s:130, l:"15%", t:"45%", o:0.05 },
+      ];
+      return (
+        <div style={{ position:"fixed", inset:0, overflow:"hidden", pointerEvents:"none", zIndex:0 }}>
+          {cs.map((c,i) => (
+            <div key={i} style={{ position:"absolute", width:c.s, height:c.s, left:c.l, top:c.t,
+              borderRadius:"50%", background:"#D1D5DB", opacity:c.o }} />
+          ))}
+        </div>
+      );
+    }
+
+    // ────────── Slider + editable number input ──────────────────────────────────
+    function SliderInput({ label, value, min, max, step=1, onChange, suffix="" }) {
+      const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+      const onNum = e => {
+        const v = Number(e.target.value);
+        if (!isNaN(v)) onChange(clamp(v, min, max));
+      };
+      return (
+        <div style={{ marginBottom:"1.5rem" }}>
+          <div style={{ marginBottom:"0.45rem" }}>
+            <span style={{ fontSize:"0.84rem", fontWeight:600, color:"#374151" }}>{label}</span>
+          </div>
+          <div className="slider-row" style={{ display:"flex", alignItems:"center", gap:"0.75rem" }}>
+            <div style={{ flex:1 }}>
+              <input type="range" min={min} max={max} step={step} value={value}
+                onChange={e => onChange(Number(e.target.value))}
+                className="informa-slider"
+                style={{ background:`linear-gradient(to right,${PINK} ${pct}%,#DDDFE4 ${pct}%)` }}
+              />
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:"0.67rem", color:"#C4C8D1", marginTop:"0.15rem" }}>
+                <span>{sek(min)}{suffix==="%"?"%":""}</span>
+                <span>{sek(max)}{suffix==="%"?"%":""}</span>
+              </div>
+            </div>
+            <div className="slider-number-wrap" style={{ display:"flex", alignItems:"center", gap:"0.2rem", flexShrink:0 }}>
+              <input type="number" value={value} min={min} max={max} step={step}
+                onChange={onNum} className="no-spin"
+                style={{
+                  width: suffix==="kr" ? "5.5rem" : "3.5rem",
+                  padding:"0.35rem 0.5rem", borderRadius:"0.5rem",
+                  border:"1.5px solid #E5E7EB", fontSize:"0.9rem",
+                  fontWeight:700, color:PINK, textAlign:"right",
+                  fontFamily:"inherit", background:"#FAFAFA",
+                }}
+              />
+              {suffix && <span style={{ fontSize:"0.8rem", color:"#9CA3AF", fontWeight:500, whiteSpace:"nowrap" }}>{suffix}</span>}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ────────── PIN screen with lockout ────────────────────────────────────────
+    function PinScreen({ onUnlock }) {
+      const [pin,       setPin]       = useState("");
+      const [error,     setError]     = useState(false);
+      const [shake,     setShake]     = useState(false);
+      const [attempts,  setAttempts]  = useState(0);
+      const [lockUntil, setLockUntil] = useState(0);
+      const [now,       setNow]       = useState(Date.now());
+
+      useEffect(() => {
+        if (lockUntil <= Date.now()) return;
+        const id = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(id);
+      }, [lockUntil]);
+
+      const locked   = now < lockUntil;
+      const secsLeft = locked ? Math.ceil((lockUntil - now) / 1000) : 0;
+
+      const tryUnlock = () => {
+        if (locked) return;
+        if (pin.trim() === "informa2026") {
+          onUnlock();
+        } else {
+          const next = attempts + 1;
+          setAttempts(next);
+          setError(true); setShake(true); setPin("");
+          setTimeout(() => setShake(false), 460);
+          if (next >= 3) {
+            setLockUntil(Date.now() + 30000);
+            setAttempts(0);
+            setNow(Date.now());
+          }
+        }
+      };
+
+      return (
+        <div style={{ display:"flex", justifyContent:"center", alignItems:"center", minHeight:"68vh" }}>
+          <div style={{
+            background:"#fff", borderRadius:"1.75rem", padding:"3rem 2.5rem",
+            width:"100%", maxWidth:400, textAlign:"center",
+            boxShadow:"0 12px 56px rgba(0,0,0,0.09)",
+            animation: shake ? "pinShake 0.46s ease" : "none",
+          }}>
+            <div style={{ fontSize:"2.4rem", fontWeight:700, color:PINK, letterSpacing:"-0.03em", marginBottom:"1.5rem" }}>Informa</div>
+            <div style={{ width:52, height:52, borderRadius:"50%", background:`${PINK}20`,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              margin:"0 auto 1.25rem", fontSize:"1.5rem" }}>🔒</div>
+            <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:"1.5rem", fontWeight:800, color:"#111", margin:"0 0 0.5rem" }}>
+              Internt verktyg
+            </h2>
+            <p style={{ color:"#9CA3AF", fontSize:"0.875rem", margin:"0 0 2rem" }}>Ange PIN-kod för att fortsätta</p>
+
+            {locked ? (
+              <div style={{ background:"#FEF2F2", border:"1px solid #FCA5A5", borderRadius:"0.875rem", padding:"1.25rem", marginBottom:"1.25rem" }}>
+                <p style={{ color:"#DC2626", fontWeight:700, fontSize:"0.95rem", margin:"0 0 0.25rem" }}>För många försök</p>
+                <p style={{ color:"#EF4444", fontSize:"0.85rem", margin:0 }}>Försök igen om <strong>{secsLeft}</strong> sekunder</p>
+              </div>
+            ) : (
+              <React.Fragment>
+                <input
+                  type="text" autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false}
+                  value={pin}
+                  onChange={e => { setPin(e.target.value); setError(false); }}
+                  onKeyDown={e => { if (e.key === "Enter") tryUnlock(); }}
+                  placeholder="PIN-kod"
+                  autoFocus
+                  style={{
+                    display:"block", width:"100%", padding:"0.9rem 1rem",
+                    borderRadius:"0.875rem",
+                    border:`2px solid ${error ? "#EF4444" : "#E5E7EB"}`,
+                    fontSize:"1.1rem", textAlign:"center", letterSpacing:"0.15em",
+                    fontFamily:"inherit", outline:"none",
+                    marginBottom: error ? "0.5rem" : "1.25rem",
+                    boxSizing:"border-box", color:"#111",
+                    transition:"border-color 0.2s",
+                  }}
+                />
+                {error && (
+                  <p style={{ color:"#EF4444", fontSize:"0.8rem", margin:"0 0 1rem" }}>
+                    Fel PIN-kod.{(3 - attempts) > 0 ? ` ${3 - attempts} försök kvar.` : ""}
+                  </p>
+                )}
+              </React.Fragment>
+            )}
+
+            <button type="button" onClick={tryUnlock} disabled={locked}
+              style={{
+                width:"100%", padding:"0.9rem",
+                background: locked ? "#D1D5DB" : PINK,
+                color:"#fff", border:"none",
+                borderRadius:"2rem", fontSize:"1rem", fontWeight:700,
+                cursor: locked ? "not-allowed" : "pointer",
+                fontFamily:"inherit",
+                boxShadow: locked ? "none" : `0 6px 20px ${PINK}44`,
+                transition:"all 0.2s",
+              }}
+            >
+              {locked ? `Låst ${secsLeft}s` : "Lås upp \u2192"}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ────────── External calculator ────────────────────────────────────────────
+    function ExternalCalc() {
+      const [orderVal,  setOrderVal]  = useLS("ext_orderVal",  250000);
+      const [curMeet,   setCurMeet]   = useLS("ext_curMeet",   10);
+      const [closeRate, setCloseRate] = useLS("ext_closeRate", 15);
+      const [extraMeet, setExtraMeet] = useLS("ext_extraMeet", 15);
+      const [cost,      setCost]      = useLS("ext_cost",      35000);
+      const [showCost,  setShowCost]  = useState(false);
+      const [toast,     setToast]     = useState(null);
+
+      // Parse URL hash on mount
+      useEffect(() => {
+        try {
+          const hash = location.hash;
+          if (hash.startsWith("#ext=")) {
+            const d = JSON.parse(atob(hash.slice(5)));
+            if (d.orderVal  !== undefined) setOrderVal(d.orderVal);
+            if (d.curMeet   !== undefined) setCurMeet(d.curMeet);
+            if (d.closeRate !== undefined) setCloseRate(d.closeRate);
+            if (d.extraMeet !== undefined) setExtraMeet(d.extraMeet);
+            if (d.cost      !== undefined) setCost(d.cost);
+            history.replaceState(null, "", location.pathname + location.search);
+          }
+        } catch {}
+      }, []);
+
+      const revenueToday   = curMeet * (closeRate/100) * orderVal;
+      const extraMonthly   = extraMeet * (closeRate/100) * orderVal;
+      const extraYearly    = extraMonthly * 12;
+      const revWithInforma = revenueToday + extraMonthly;
+      const roi            = cost > 0 ? ((extraMonthly - cost) / cost) * 100 : 0;
+      const revPerMeet     = (closeRate/100) * orderVal;
+      const payback        = revPerMeet > 0 ? Math.ceil(cost / revPerMeet) : "–";
+
+      const aMonth = useCountUp(extraMonthly);
+      const aYear  = useCountUp(extraYearly);
+      const aROI   = useCountUp(Math.max(0, Math.round(roi)));
+
+      const chartData = [
+        { name:"Idag",        value: Math.round(revenueToday)   },
+        { name:"Med Informa", value: Math.round(revWithInforma) },
+      ];
+
+      const handleCopy = () => {
+        const t = [
+          "══════════════════════════════════════",
+          "  INFORMA – ROI-kalkylation",
+          "══════════════════════════════════════",
+          "Ordervärde:            " + sek(orderVal) + " kr",
+          "Möten/månad (idag):    " + curMeet + " st",
+          "Avslutningsgrad:       " + closeRate + "%",
+          "Extra möten (Informa): " + extraMeet + " st/mån",
+          "Månadsavgift:          " + sek(cost) + " kr",
+          "",
+          "Extra intäkter/månad:  " + sek(extraMonthly) + " kr",
+          "Extra intäkter/år:     " + sek(extraYearly) + " kr",
+          "ROI:                   " + Math.round(roi) + "%",
+          "Payback efter:         " + payback + " möten",
+          "══════════════════════════════════════",
+          "Informa – Vi bygger försäljning som skapar tillväxt",
+          "https://informa.se",
+        ].join("\n");
+        navigator.clipboard.writeText(t);
+        setToast("✓ Kalkylation kopierad!");
+      };
+
+      const handleShare = () => {
+        const data = { orderVal, curMeet, closeRate, extraMeet, cost };
+        const hash = btoa(JSON.stringify(data));
+        const url  = location.href.split("#")[0] + "#ext=" + hash;
+        navigator.clipboard.writeText(url);
+        setToast("✓ Delningslänk kopierad!");
+      };
+
+      const card = {
+        background:"#fff", borderRadius:"1.375rem", padding:"1.875rem 2rem",
+        boxShadow:"0 2px 16px rgba(0,0,0,0.06),0 8px 32px rgba(0,0,0,0.04)",
+        border:"1px solid rgba(0,0,0,0.06)"
+      };
+
+      return (
+        <div>
+          {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
+
+          <div className="print-header">
+            <div style={{ fontSize:"2rem", fontWeight:700, color:PINK }}>Informa</div>
+            <div style={{ fontSize:"1rem", color:"#6B7280" }}>ROI-kalkylation · {new Date().toLocaleDateString("sv-SE")}</div>
+          </div>
+
+          <div style={{ textAlign:"center", marginBottom:"2.75rem" }}>
+            <h1 style={{ fontFamily:"'Playfair Display',serif", fontSize:"clamp(1.85rem,5vw,3.1rem)",
+              fontWeight:900, color:"#111", margin:"0 0 1rem", lineHeight:1.15 }}>
+              Vad är fler möten värda för er?
+            </h1>
+            <p style={{ color:"#6B7280", fontSize:"1.05rem", maxWidth:560, margin:"0 auto", lineHeight:1.7 }}>
+              Räkna ut hur mycket extra intäkter kvalificerade säljmöten kan generera för ert företag.
+            </p>
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(310px,1fr))", gap:"1.5rem", marginBottom:"2.25rem" }}>
+
+            <div style={card}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"1.625rem" }}>
+                <h2 style={{ fontFamily:"'Playfair Display',serif", fontWeight:800, fontSize:"1.2rem", color:"#111", margin:0 }}>Era förutsättningar</h2>
+                <button type="button" className="no-print" onClick={() => setShowCost(!showCost)} title="Justera månadsavgift"
+                  style={{ background: showCost ? PINK+"15" : "none", border: showCost ? "1px solid "+PINK+"40" : "1px solid transparent",
+                    borderRadius:"0.5rem", cursor:"pointer", fontSize:"1.2rem", padding:"0.25rem 0.5rem", color: showCost ? PINK : "#9CA3AF" }}>
+                  &#9881;&#65039;
+                </button>
+              </div>
+
+              {showCost && (
+                <div style={{ background:PINK+"0D", border:"1px solid "+PINK+"30", borderRadius:"0.875rem", padding:"1rem 1.125rem", marginBottom:"1.5rem" }}>
+                  <label style={{ display:"block", fontSize:"0.78rem", fontWeight:700, color:"#374151", marginBottom:"0.4rem", textTransform:"uppercase", letterSpacing:"0.05em" }}>
+                    Informas månadsavgift (kr)
+                  </label>
+                  <input type="number" value={cost} onChange={e => setCost(Math.max(0, Number(e.target.value)))}
+                    style={{ display:"block", width:"100%", padding:"0.55rem 0.875rem", borderRadius:"0.625rem",
+                      border:"1.5px solid "+PINK+"44", fontSize:"1rem", fontFamily:"inherit", outline:"none",
+                      boxSizing:"border-box", color:"#111" }}
+                  />
+                </div>
+              )}
+
+              <SliderInput label="Genomsnittligt ordervärde" value={orderVal} min={10000} max={5000000} step={10000} onChange={setOrderVal} suffix="kr" />
+              <SliderInput label="Antal säljmöten ni bokar idag per månad" value={curMeet} min={0} max={100} onChange={setCurMeet} suffix="st" />
+              <SliderInput label="Andel möten som leder till affär" value={closeRate} min={1} max={50} onChange={setCloseRate} suffix="%" />
+              <SliderInput label="Antal extra möten per månad med Informa" value={extraMeet} min={5} max={50} onChange={setExtraMeet} suffix="st" />
+            </div>
+
+            <div style={card}>
+              <h2 style={{ fontFamily:"'Playfair Display',serif", fontWeight:800, fontSize:"1.2rem", color:"#111", margin:"0 0 1.5rem" }}>Er potential</h2>
+
+              <div style={{ background:"#F4FBF4", borderRadius:"1rem", padding:"1.1rem 1.25rem", marginBottom:"0.875rem", border:"1px solid #D1EDCF" }}>
+                <p style={{ margin:"0 0 0.2rem", fontSize:"0.72rem", color:"#9CA3AF", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.06em" }}>Extra intäkter per månad</p>
+                <p style={{ margin:0, fontSize:"2.1rem", fontWeight:700, color:GREEN, letterSpacing:"-0.02em" }}>{sek(aMonth)} kr</p>
+              </div>
+
+              <div style={{ background:PINK+"0D", border:"2px solid "+PINK+"30", borderRadius:"1rem", padding:"1.25rem", marginBottom:"1.25rem" }}>
+                <p style={{ margin:"0 0 0.2rem", fontSize:"0.72rem", color:PINK, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em" }}>Extra intäkter per år</p>
+                <p style={{ margin:0, fontSize:"2.75rem", fontWeight:900, color:PINK, letterSpacing:"-0.03em", fontFamily:"'Playfair Display',serif" }}>
+                  {sek(aYear)} kr
+                </p>
+              </div>
+
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"0.75rem", marginBottom:"1.375rem" }}>
+                <div style={{ background:"#FAFAFA", borderRadius:"0.875rem", padding:"1rem", textAlign:"center", border:"1px solid #EBEBEB" }}>
+                  <p style={{ margin:"0 0 0.3rem", fontSize:"0.7rem", color:"#9CA3AF", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>ROI</p>
+                  <p style={{ margin:0, fontSize:"1.6rem", fontWeight:800, color: roi >= 0 ? GREEN : "#EF4444" }}>{aROI}%</p>
+                </div>
+                <div style={{ background:"#FAFAFA", borderRadius:"0.875rem", padding:"1rem", textAlign:"center", border:"1px solid #EBEBEB" }}>
+                  <p style={{ margin:"0 0 0.3rem", fontSize:"0.7rem", color:"#9CA3AF", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>Payback efter</p>
+                  <p style={{ margin:0, fontSize:"1.6rem", fontWeight:800, color:"#111" }}>
+                    {payback} <span style={{ fontSize:"0.85rem", fontWeight:500, color:"#6B7280" }}>möten</span>
+                  </p>
+                </div>
+              </div>
+
+              <p style={{ margin:"0 0 0.5rem", fontSize:"0.78rem", color:"#9CA3AF", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.05em" }}>Intäktsjämförelse / månad</p>
+              <BarChartSVG data={chartData} />
+            </div>
+          </div>
+
+          <div style={{ textAlign:"center" }}>
+            <div className="cta-row no-print" style={{ display:"flex", flexWrap:"wrap", gap:"0.75rem", justifyContent:"center", marginBottom:"1.5rem" }}>
+              <a href="https://informa.se" target="_blank" rel="noopener noreferrer"
+                style={{ display:"inline-block", padding:"1rem 2.75rem", background:PINK, color:"#fff",
+                  borderRadius:"2rem", textDecoration:"none", fontWeight:700, fontSize:"1rem",
+                  boxShadow:"0 8px 28px "+PINK+"44" }}>
+                Vill du veta mer? Boka ett samtal &#8594;
+              </a>
+              <button type="button" onClick={handleCopy}
+                style={{ padding:"1rem 1.75rem", background:"#fff", color:"#374151",
+                  border:"1.5px solid #D1D5DB", borderRadius:"2rem", fontSize:"1rem", fontWeight:600,
+                  cursor:"pointer", fontFamily:"inherit" }}>
+                Kopiera kalkylation
+              </button>
+              <button type="button" onClick={handleShare}
+                style={{ padding:"1rem 1.75rem", background:"#fff", color:"#374151",
+                  border:"1.5px solid #D1D5DB", borderRadius:"2rem", fontSize:"1rem", fontWeight:600,
+                  cursor:"pointer", fontFamily:"inherit" }}>
+                &#128279; Dela länk
+              </button>
+              <button type="button" onClick={() => window.print()}
+                style={{ padding:"1rem 1.75rem", background:"#fff", color:"#374151",
+                  border:"1.5px solid #D1D5DB", borderRadius:"2rem", fontSize:"1rem", fontWeight:600,
+                  cursor:"pointer", fontFamily:"inherit" }}>
+                &#128438; Skriv ut / PDF
+              </button>
+            </div>
+            <p style={{ color:"#ABAEB5", fontSize:"0.85rem", fontStyle:"italic" }}>
+              Informa &#8211; Vi bygger försäljning som skapar tillväxt
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // ────────── Internal calculator ──────────────────────────────────────────
+    function InternalCalc() {
+      const [name,   setName]   = useLS("int_name",   "");
+      const [seller, setSeller] = useLS("int_seller", "");
+      const [branch, setBranch] = useLS("int_branch", "IT/SaaS");
+      const [meet,   setMeet]   = useLS("int_meet",   15);
+      const [price,  setPrice]  = useLS("int_price",  3500);
+      const [cLen,   setCLen]   = useLS("int_cLen",   12);
+      const [cCost,  setCCost]  = useLS("int_cCost",  1500);
+      const [toast,  setToast]  = useState(null);
+
+      const INDS = ["IT/SaaS","Industri","Bygg","Rekrytering","Finans","Hälsa/Pharma","Media","Konsult","Annan"];
+
+      const monthlyRev     = meet * price;
+      const yearlyRev      = monthlyRev * 12;
+      const contractVal    = monthlyRev * cLen;
+      const marginPerMtg   = price - cCost;
+      const monthlyMargin  = marginPerMtg * meet;
+      const contractMargin = monthlyMargin * cLen;
+      const marginPct      = price > 0 ? (marginPerMtg / price) * 100 : 0;
+
+      const aMRev  = useCountUp(monthlyRev);
+      const aYRev  = useCountUp(yearlyRev);
+      const aCVal  = useCountUp(contractVal);
+      const aMPMtg = useCountUp(marginPerMtg);
+      const aMMarg = useCountUp(monthlyMargin);
+      const aCMarg = useCountUp(contractMargin);
+      const aMPct  = useCountUp(marginPct);
+
+      const score = marginPct >= 50
+        ? { label:"Bra deal",  color:"#16A34A", bg:"#F0FDF4", border:"#86EFAC" }
+        : marginPct >= 30
+          ? { label:"Okej deal", color:"#D97706", bg:"#FFFBEB", border:"#FCD34D" }
+          : { label:"Svag deal", color:"#DC2626", bg:"#FEF2F2", border:"#FCA5A5" };
+
+      const handleCopy = () => {
+        const sep = "═".repeat(38);
+        const lines = [
+          sep,
+          "  INFORMA – Intern kalkylation",
+          sep,
+          name   ? ("Kund:               " + name)   : null,
+          seller ? ("Säljare:            " + seller) : null,
+          "Bransch:            " + branch,
+          "Datum:              " + new Date().toLocaleDateString("sv-SE"),
+          "",
+          "Möten/månad:        " + meet + " st",
+          "Pris/möte:          " + sek(price) + " kr",
+          "Kostnad/möte:       " + sek(cCost) + " kr",
+          "Kontraktslängd:     " + cLen + " månader",
+          "",
+          "Månadsintäkt:       " + sek(monthlyRev) + " kr",
+          "Årsintäkt:          " + sek(yearlyRev) + " kr",
+          "Kontraktsvärde:     " + sek(contractVal) + " kr",
+          "",
+          "Marginal/möte:      " + sek(marginPerMtg) + " kr",
+          "Marginal/månad:     " + sek(monthlyMargin) + " kr",
+          "Marginal/kontrakt:  " + sek(contractMargin) + " kr",
+          "Bruttomarginal:     " + Math.round(marginPct) + "%",
+          "",
+          "Deal Score: " + score.label,
+          sep,
+        ].filter(l => l !== null).join("\n");
+        navigator.clipboard.writeText(lines);
+        setToast("✓ Kalkylation kopierad!");
+      };
+
+      const handleReset = () => {
+        setName(""); setSeller(""); setBranch("IT/SaaS");
+        setMeet(15); setPrice(3500); setCLen(12); setCCost(1500);
+      };
+
+      const card = {
+        background:"#fff", borderRadius:"1.375rem", padding:"1.75rem 2rem",
+        boxShadow:"0 2px 16px rgba(0,0,0,0.06),0 8px 32px rgba(0,0,0,0.04)",
+        border:"1px solid rgba(0,0,0,0.06)"
+      };
+
+      const Row = ({ label, value, color, large }) => (
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"0.625rem 0", borderBottom:"1px solid #F0F0F0" }}>
+          <span style={{ fontSize: large ? "0.875rem" : "0.82rem", color:"#6B7280", fontWeight:500 }}>{label}</span>
+          <span style="{{ fontSize: large ? "1.1rem" : "0.95rem", fontWeight:700, color: color || "#111" }}>{value}</span>
+        </div>
+      );
+
+      const iBase = {
+        display:"block", width:"100%", padding:"0.625rem 0.875rem",
+        borderRadius:"0.625rem", border:"1.5px solid #E5E7EB",
+        fontSize:"0.9rem", fontFamily:"inherit", outline:"none",
+        color:"#111", boxSizing:"border-box", background:"#fff"
+      };
+
+      return (
+        <div>
+          {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
+
+          <div className="print-header">
+            <div style={{ fontSize:"2rem", fontWeight:700, color:PINK }}>Informa</div>
+            <div style={{ fontSize:"1rem", color:"#6B7280" }}>
+              Intern kalkylation{name ? " · " + name : ""} · {new Date().toLocaleDateString("sv-SE")}
+            </div>
+          </div>
+
+          <div style={{ marginBottom:"2rem" }}>
+            <h1 style={{ fontFamily:"'Playfair Display',serif", fontSize:"clamp(1.5rem,3vw,2.25rem)", fontWeight:900, color:"#111", margin:"0 0 0.5rem" }}>
+              Intern kalkylator
+            </h1>
+            <p style={{ color:"#9CA3AF", fontSize:"0.875rem" }}>Beräkna kundvärde för Informa · Redo att klistra in i HubSpot</p>
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(310px,1fr))", gap:"1.5rem" }}>
+
+            <div style={card}>
+              <h2 style={{ fontFamily:"'Playfair Display',serif", fontWeight:800, fontSize:"1.2rem", color:"#111", margin:"0 0 1.5rem" }}>
+                Kunduppgifter &amp; parametrar
+              </h2>
+
+              <div style={{ marginBottom:"1rem" }}>
+                <label style={{ display:"block", fontSize:"0.78rem", fontWeight:700, color:"#374151", marginBottom:"0.375rem", textTransform:"uppercase", letterSpacing:"0.05em" }}>Kundnamn</label>
+                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Företagets namn..." style={iBase} />
+              </div>
+
+              <div style={{ marginBottom:"1rem" }}>
+                <label style={{ display:"block", fontSize:"0.78rem", fontWeight:700, color:"#374151", marginBottom:"0.375rem", textTransform:"uppercase", letterSpacing:"0.05em" }}>Säljare</label>
+                <input type="text" value={seller} onChange={e => setSeller(e.target.value)} placeholder="Ditt namn..." style={iBase} />
+              </div>
+
+              <div style={{ marginBottom:"1.375rem" }}>
+                <label style={{ display:"block", fontSize:"0.78rem", fontWeight:700, color:"#374151", marginBottom:"0.375rem", textTransform:"uppercase", letterSpacing:"0.05em" }}>Bransch</label>
+                <select value={branch} onChange={e => setBranch(e.target.value)} style={iBase}>
+                  {INDS.map(ind => <option key={ind}>{ind}</option>)}
+                </select>
+              </div>
+
+              <SliderInput label="Möten vi kan leverera per månad" value={meet} min={5} max={50} onChange={setMeet} suffix="st" />
+              <SliderInput label="Pris per möte" value={price} min={1000} max={10000} step={100} onChange={setPrice} suffix="kr" />
+              <SliderInput label="Uppskattad kontraktslängd" value={cLen} min={3} max={24} onChange={setCLen} suffix="mån" />
+              <SliderInput label="Kostnad för leverans per möte" value={cCost} min={500} max={5000} step={100} onChange={setCCost} suffix="kr" />
+            </div>
+
+            <div style={{ display:"flex", flexDirection:"column", gap:"1rem" }}>
+
+              <div style={{ ...card, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"1.375rem 2rem" }}>
+                <div>
+                  <p style={{ margin:"0 0 0.15rem", fontSize:"0.72rem", color:"#9CA3AF", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.06em" }}>Deal Score</p>
+                  <p style={{ margin:0, fontSize:"2.5rem", fontWeight:900, color:score.color, fontFamily:"'Playfair Display',serif", lineHeight:1.05 }}>
+                    {Math.round(aMPct)}%
+                  </p>
+                </div>
+                <div style={{ padding:"0.55rem 1.5rem", borderRadius:"2rem", background:score.bg, border:"1.5px solid "+score.border, color:score.color, fontWeight:700, fontSize:"1rem" }}>
+                  {score.label}
+                </div>
+              </div>
+
+              <div style={card}>
+                <h3 style={{ fontFamily:"'Playfair Display',serif", fontWeight:700, fontSize:"1.05rem", color:"#111", margin:"0 0 0.75rem" }}>Intäkter</h3>
+                <Row label="Månadsintäkt" value={sek(aMRev) + " kr"} color={PINK} large={true} />
+                <Row label="Årsintäkt" value={sek(aYRev) + " kr"} />
+                <Row label="Totalt kontraktsvärde" value={sek(aCVal) + " kr"} large={true} />
+              </div>
+
+              <div style={card}>
+                <h3 style={{ fontFamily:"'Playfair Display',serif", fontWeight:700, fontSize:"1.05rem", color:"#111", margin:"0 0 0.75rem" }}>Marginaler</h3>
+                <Row label="Bruttomarginal per möte" value={sek(aMPMtg) + " kr"} />
+                <Row label="Bruttomarginal per månad" value={sek(aMMarg) + " kr"} color={GREEN} />
+                <Row label="Bruttomarginal per kontrakt" value={sek(aCMarg) + " kr"} color={GREEN} large={true} />
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:"0.75rem" }}>
+                  <span style={{ fontSize:"0.875rem", color:"#374151", fontWeight:600 }}>Bruttomarginal %</span>
+                  <span style={{ fontSize:"1.5rem", fontWeight:900, color:score.color, fontFamily:"'Playfair Display',serif" }}>{Math.round(aMPct)}%</span>
+                </div>
+              </div>
+
+              <div className="no-print" style={{ display:"flex", gap:"0.75rem", flexWrap:"wrap" }}>
+                <button type="button" onClick={handleCopy}
+                  style={{ flex:1, minWidth:160, padding:"0.9rem 1.25rem",
+                    background:PINK, color:"#fff", border:"none",
+                    borderRadius:"2rem", fontSize:"0.9rem", fontWeight:700,
+                    cursor:"pointer", fontFamily:"inherit",
+                    boxShadow:"0 5px 18px "+PINK+"44" }}>
+                  Kopiera kalkylation
+                </button>
+                <button type="button" onClick={() => window.print()}
+                  style={{ padding:"0.9rem 1.25rem", background:"#fff", color:"#374151",
+                    border:"1.5px solid #D1D5DB", borderRadius:"2rem",
+                    fontSize:"0.9rem", fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                  &#128438; Skriv ut
+                </button>
+                <button type="button" onClick={handleReset}
+                  style={{ padding:"0.9rem 1.25rem", background:"#fff", color:"#374151",
+                    border:"1.5px solid #D1D5DB", borderRadius:"2rem",
+                    fontSize:"0.9rem", fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                  Nollställ
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ────────── App ────────────────────────────────────────────────────────────
+    function App() {
+      const [tab,   setTab]   = useState("external");
+      const [pinOk, setPinOk] = useState(false);
+
+      return (
+        <React.Fragment>
+          <BgCircles />
+          <div style={{ position:"relative", zIndex:1, minHeight:"100vh" }}>
+            <header className="no-print" style={{ position:"sticky", top:0, zIndex:100,
+              background:"rgba(255,255,255,0.95)",
+              backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)",
+              borderBottom:"1px solid rgba(0,0,0,0.08)" }}>
+              <div style={{ maxWidth:1140, margin:"0 auto", padding:"0 1.5rem",
+                height:68, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                <div style={{ fontSize:"1.7rem", fontWeight:700, color:PINK,
+                  letterSpacing:"-0.035em", fontFamily:"'DM Sans',sans-serif", userSelect:"none" }}>
+                  Informa
+                </div>
+                <nav style={{ display:"flex", background:"#EFEFEF", borderRadius:"2rem", padding:"4px", gap:"2px" }}>
+                  {[{id:"external",label:"För kunder"},{id:"internal",label:"Intern"}].map(function(item) {
+                    return (
+                      <button key={item.id} type="button" onClick={() => setTab(item.id)}
+                        style={{ padding:"0.45rem 1.25rem", borderRadius:"2rem", border:"none",
+                          cursor:"pointer", fontWeight:600, fontSize:"0.875rem", fontFamily:"inherit",
+                          background: tab===item.id ? PINK : "transparent",
+                          color: tab===item.id ? "#fff" : "#6B7280",
+                          boxShadow: tab===item.id ? "0 2px 12px "+PINK+"44" : "none",
+                          transition:"all 0.2s" }}>
+                        {item.label}
+                        {item.id==="internal" && !pinOk && <span style={{ marginLeft:"0.35rem", fontSize:"0.7rem", opacity:0.65 }}>🔒</span>}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+            </header>
+
+            <main style={{ maxWidth:1140, margin:"0 auto", padding:"2.75rem 1.5rem 5rem" }}>
+              {tab === "external" && (
+                <div className="tab-in" key="ext"><ExternalCalc /></div>
+              )}
+              {tab === "internal" && (
+                <div className="tab-in" key="int">
+                  {pinOk ? <InternalCalc /> : <PinScreen onUnlock={() => setPinOk(true)} />}
+                </div>
+              )}
+            </main>
+          </div>
+        </React.Fragment>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
