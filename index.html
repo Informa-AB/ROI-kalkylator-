@@ -571,6 +571,15 @@
       const [hCost, setHCost] = useLS("int_hCost",  250);
       const [toast, setToast] = useState(null);
 
+  useEffect(() => {
+    const _ps = new URLSearchParams(window.location.search);
+    const _fn = _ps.get("foretag"), _bp = _ps.get("branch"), _sp = _ps.get("saljare");
+    const _ri = ["IT/SaaS","Industri","Bygg","Rekrytering","Finans","H\u00e4lsa/Pharma","Media","Konsult","Annan"];
+    if (_fn) setName(_fn);
+    if (_sp) setSeller(_sp);
+    if (_bp) { if (_ri.includes(_bp)) setBranch(_bp); else { const _k = _bp.toLowerCase().split("/")[0]; const _m = _ri.find(b => b.toLowerCase().includes(_k)); if (_m) setBranch(_m); } }
+  }, []);
+
       const INDS = ["IT/SaaS","Industri","Bygg","Rekrytering","Finans","Hälsa/Pharma","Media","Konsult","Annan"];
       const isPM = priceModel === "per_meet";
 
@@ -823,7 +832,7 @@
 
     // ────────── App ────────────────────────────────────────────────────────────
     function App() {
-      const [tab,   setTab]   = useState("external");
+      const [tab, setTab] = useState(() => { const _t = new URLSearchParams(window.location.search).get("tab"); return (_t === "internal" || _t === "external") ? _t : "external"; });
       const [pinOk, setPinOk] = useState(false);
 
       return (
