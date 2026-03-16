@@ -848,19 +848,159 @@
       const aDeals  = useCountUp(newDeals);
       const aMeet   = useCountUp(totalMeetings);
 
-      function copyResult() {
-        const txt =
-          "Offertunderlag – Informa\n" +
-          "────────────────────────\n" +
-          "Möten Informa tillför: " + totalMeetings + "\n" +
-          "Förväntade nya affärer: " + newDeals.toFixed(1) + "\n" +
-          "Direkt intäktspåverkan: " + sek(directRev) + "\n" +
-          "Livstidsvärde (x" + (lifetime/12).toFixed(1) + " år): " + sek(ltvTotal) + "\n";
-        navigator.clipboard.writeText(txt).then(function() {
-          setToast("Kopierat till urklipp!");
-          setTimeout(function() { setToast(null); }, 2500);
-        });
+            function generatePDF() {
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('sv-SE', {year:'numeric', month:'long', day:'numeric'});
+        const fmt = (n) => new Intl.NumberFormat('sv-SE').format(Math.round(n)).replace(/[\u00a0\u202f\u2009]/g,' ');
+
+        const totalM  = Math.round(totalMeetings);
+        const newD    = newDeals.toFixed(1);
+        const dirR    = fmt(directRev);
+        const ltvStr  = fmt(ltvTotal);
+        const ltvYrs  = (lifetime/12).toFixed(1);
+
+        const logo = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 58.7" style="height:28px;width:auto;display:block;fill:currentColor"><polygon points="7.1,58.1 0,58.1 0,0 7.1,7.4"/><path d="M59.3,25.1h-5.8v-7.3h5.9C60.3,8.3,65.7,3.4,75.1,3v7.3c-4.5,0.5-7.9,2.4-8.2,7.5c0,0,3.5,0,9.3,0c-2.2,1.8-3.9,3.6-5.1,7.3h-4.3v33h-7.5L59.3,25.1z"/><path d="M116.4,38c0,11.4-9.2,20.6-20.6,20.6S75.1,49.4,75.1,38s9.2-20.6,20.6-20.6S116.4,26.5,116.4,38z M83,38c0,7.3,5.6,13,12.9,13s12.7-5.8,12.7-13s-5.4-13-12.7-13S83,30.7,83,38z"/><path d="M121.9,37c0-13.4,8.4-19.5,18.2-19.5c2-0.2,4.9-0.1,4.9-0.1s-4.9,4.6-6.3,7.8c-3.9,0.1-8.9,3.6-8.9,11.8v21.1h-7.9L121.9,37z"/><path d="M49.7,58.1H42V36.5c0-8-3.4-11.7-9.6-11.7s-9.6,3.8-9.6,11.7v21.6h-7.7V36.5c0-13.2,7.2-19.2,17.2-19.2s17.2,6,17.2,19.2V58.1z"/><g><path d="M178.9,58.1h-7.7V36.5c0-8-3.4-11.7-9.6-11.7s-9.6,3.8-9.6,11.7v21.6h-7.7V36.5c0-13.2,7.2-19.2,17.2-19.2c10,0,17.2,6,17.2,19.2V58.1z"/><path d="M187.5,17.3c-3.9,0-7.4,0.9-10.1,2.8c1.6,1.8,2.9,4.1,3.7,6.9c1.6-1.5,3.8-2.2,6.4-2.2c6.1,0,9.6,3.8,9.6,11.7v21.6h7.7V36.5C204.8,23.4,197.6,17.3,187.5,17.3z"/></g><path d="M229.1,25c-3.2,0-6.1,1.1-8.3,3c-2.6,2.3-4.2,5.7-4.2,9.6l0,0.4c0,7.3,5.6,13.1,12.9,13.1c3.8,0,9.5,0,9.5,0v7.4c0,0-5.9,0.2-9.5,0.2c-11.4,0-20.7-9.2-20.7-20.7s9.3-20.7,20.7-20.7c11.4,0,20.6,9.2,20.6,20.7v20h-7.8V38c0-7.3-5.4-13.1-12.7-13.1L229.1,25z"/></svg>';
+
+        const css = `
+          @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap');
+          *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+          html, body { font-family: 'DM Sans', system-ui, sans-serif; color: #111; background: #fff;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          @page { size: A4 portrait; margin: 1.6cm 2cm; }
+          .page { width: 100%; page-break-after: always; }
+          .page:last-child { page-break-after: avoid; }
+          .doc-hdr { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5mm; }
+          .doc-hdr-r { text-align: right; }
+          .doc-label { font-size: 9.5px; font-weight: 700; color: #9CA3AF; letter-spacing: .12em; text-transform: uppercase; }
+          .doc-date  { font-size: 9.5px; color: #9CA3AF; margin-top: 1.5px; }
+          .rule { height: 3px; background: #E8627C; border-radius: 2px; margin-bottom: 6mm; }
+          .two-col { display: grid; grid-template-columns: 44% 1fr; gap: 6mm; margin-bottom: 6mm; }
+          .sec-title { font-size: 8.5px; font-weight: 700; color: #9CA3AF; text-transform: uppercase;
+            letter-spacing: .1em; margin-bottom: 3mm; }
+          .irow { display: flex; justify-content: space-between; align-items: baseline;
+            padding: 2.5mm 0; border-bottom: 1px solid #F3F4F6; }
+          .irow:last-child { border-bottom: none; }
+          .ilabel { font-size: 9.5px; color: #6B7280; font-weight: 500; }
+          .ival   { font-size: 10.5px; font-weight: 700; color: #111; }
+          .rgrid  { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; }
+          .rbox   { background: #F9FAFB; border-radius: 6px; padding: 3mm 4mm; }
+          .rnum   { font-size: 17px; font-weight: 800; color: #4CAF50; line-height: 1.1; }
+          .rnum.pk { color: #E8627C; }
+          .rnum.dk { color: #374151; }
+          .rlbl   { font-size: 7.5px; font-weight: 600; color: #9CA3AF; text-transform: uppercase;
+            letter-spacing: .06em; margin-top: 1px; }
+          .hero   { background: linear-gradient(135deg,#fff 50%,#E8627C0d);
+            border: 1.5px solid #E8627C44; border-radius: 10px;
+            padding: 5mm 8mm; text-align: center; margin-bottom: 6mm; }
+          .hero-lbl { font-size: 8.5px; font-weight: 700; color: #E8627C;
+            text-transform: uppercase; letter-spacing: .12em; margin-bottom: 2mm; }
+          .hero-num { font-size: 46px; font-weight: 900; color: #E8627C;
+            letter-spacing: -.03em; line-height: 1; }
+          .hero-sub { font-size: 9px; color: #9CA3AF; margin-top: 2mm; }
+          .steps { background: #F9FAFB; border-left: 3px solid #E8627C;
+            border-radius: 6px; padding: 4mm 5mm; }
+          .stitle { font-size: 9px; font-weight: 700; color: #374151; margin-bottom: 2.5mm; }
+          .step   { font-size: 9px; color: #6B7280; line-height: 1.7; }
+          .step b { color: #374151; }
+          .usp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; margin-bottom: 6mm; }
+          .usp  { background: #F9FAFB; border-radius: 8px; padding: 4mm 5mm;
+            border-top: 3px solid #E8627C; }
+          .utitle { font-size: 11px; font-weight: 800; color: #111; margin-bottom: 2mm; }
+          .ubody  { font-size: 9.5px; color: #4B5563; line-height: 1.6; }
+          .ctable { width: 100%; border-collapse: collapse; margin-top: 1mm; }
+          .ctable th { padding: 3mm 4mm; font-size: 8.5px; font-weight: 700;
+            text-align: left; letter-spacing: .05em; }
+          .ctable th:first-child { background: #F3F4F6; color: #6B7280; width: 50%; border-radius: 6px 0 0 0; }
+          .ctable th:last-child  { background: #E8627C; color: #fff; border-radius: 0 6px 0 0; }
+          .ctable td { padding: 2.5mm 4mm; font-size: 9px; border-bottom: 1px solid #F3F4F6; }
+          .ctable td:first-child { color: #6B7280; }
+          .ctable td:last-child  { font-weight: 600; color: #111; }
+          .ctable tr:last-child td { border-bottom: none; }
+          .footer { margin-top: 5mm; text-align: center; font-size: 8.5px; color: #9CA3AF;
+            border-top: 1px solid #F3F4F6; padding-top: 3mm; }
+          @media print { body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }
+        `;
+
+        const page1 =
+          '<div class="page">' +
+            '<div class="doc-hdr">' + logo +
+              '<div class="doc-hdr-r"><div class="doc-label">Offertunderlag</div>' +
+              '<div class="doc-date">' + dateStr + '</div></div>' +
+            '</div>' +
+            '<div class="rule"></div>' +
+            '<div class="two-col">' +
+              '<div>' +
+                '<div class="sec-title">Ert scenario</div>' +
+                '<div class="irow"><span class="ilabel">Ordervärde per affär</span><span class="ival">' + fmt(orderVal) + '\u00a0kr</span></div>' +
+                '<div class="irow"><span class="ilabel">Genomsnittlig kundlivstid</span><span class="ival">' + lifetime + '\u00a0m\u00e5nader</span></div>' +
+                '<div class="irow"><span class="ilabel">Konverteringsgrad m\u00f6te \u2192 aff\u00e4r</span><span class="ival">' + closeRate + '%</span></div>' +
+                '<div class="irow"><span class="ilabel">M\u00f6ten Informa levererar/m\u00e5n</span><span class="ival">' + informaMeet + '\u00a0st</span></div>' +
+                '<div class="irow"><span class="ilabel">Projektl\u00e4ngd</span><span class="ival">' + campaignLen + '\u00a0m\u00e5nader</span></div>' +
+              '</div>' +
+              '<div>' +
+                '<div class="sec-title">Ber\u00e4knat resultat</div>' +
+                '<div class="rgrid">' +
+                  '<div class="rbox"><div class="rnum">' + totalM + '</div><div class="rlbl">M\u00f6ten Informa tillf\u00f6r</div></div>' +
+                  '<div class="rbox"><div class="rnum">' + newD + '</div><div class="rlbl">F\u00f6rv\u00e4ntade nya kunder</div></div>' +
+                  '<div class="rbox"><div class="rnum dk">' + dirR + '</div><div class="rlbl">Direkt int\u00e4ktsp\u00e5verkan (kr)</div></div>' +
+                  '<div class="rbox"><div class="rnum pk">' + ltvStr + '</div><div class="rlbl">Livstidsv\u00e4rde nya kunder (kr)</div></div>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="hero">' +
+              '<div class="hero-lbl">Totalt aff\u00e4rsv\u00e4rde inkl. kundlivstid</div>' +
+              '<div class="hero-num">' + ltvStr + '\u00a0kr</div>' +
+              '<div class="hero-sub">Baserat p\u00e5 ' + lifetime + ' m\u00e5naders (' + ltvYrs + '\u00a0\u00e5r) genomsnittlig kundlivstid</div>' +
+            '</div>' +
+            '<div class="steps">' +
+              '<div class="stitle">S\u00e5 h\u00e4r r\u00e4knar vi</div>' +
+              '<div class="step">1. Informa bokar <b>' + informaMeet + ' m\u00f6ten/m\u00e5n \u00d7 ' + campaignLen + ' m\u00e5nader = ' + totalM + ' m\u00f6ten totalt</b></div>' +
+              '<div class="step">2. <b>' + closeRate + '%</b> av m\u00f6tena leder till aff\u00e4r = <b>' + newD + ' nya kunder</b></div>' +
+              '<div class="step">3. Varje kund \u00e4r v\u00e4rd <b>' + fmt(orderVal) + '\u00a0kr</b> \u2192 direktint\u00e4kt <b>' + dirR + '\u00a0kr</b></div>' +
+              '<div class="step">4. Kunderna stannar i snitt <b>' + lifetime + ' m\u00e5nader</b> \u2192 totalt livstidsv\u00e4rde <b>' + ltvStr + '\u00a0kr</b></div>' +
+            '</div>' +
+          '</div>';
+
+        const page2 =
+          '<div class="page">' +
+            '<div class="doc-hdr">' + logo + '</div>' +
+            '<div class="rule"></div>' +
+            '<div style="margin-bottom:5mm">' +
+              '<div style="font-size:19px;font-weight:800;color:#111;letter-spacing:-.02em;margin-bottom:1.5mm">Varf\u00f6r Informa?</div>' +
+              '<div style="font-size:10.5px;color:#6B7280">F\u00e4rre samtal. B\u00e4ttre m\u00f6ten. Fler aff\u00e4rer.</div>' +
+            '</div>' +
+            '<div class="usp-grid">' +
+              '<div class="usp"><div class="utitle">Seniora m\u00f6tesbokare</div><div class="ubody">Inte studenter som ringer p\u00e5 lista. V\u00e5ra m\u00f6tesbokare har jobbat med B2B-f\u00f6rs\u00e4ljning och f\u00f6rst\u00e5r vad det inneb\u00e4r att sitta i en beslutsfattares stol \u2014 de ringer inte efter skript, de f\u00f6r genuina aff\u00e4rssamtal.</div></div>' +
+              '<div class="usp"><div class="utitle">R\u00e4tt m\u00f6ten, inte bara fler</div><div class="ubody">Vi bokar inte m\u00f6ten f\u00f6r att fylla en kalender. Varje m\u00f6te \u00e4r med r\u00e4tt person som har r\u00e4tt mandat, ett faktiskt behov och som f\u00f6rst\u00e5r varf\u00f6r m\u00f6tet \u00e4ger rum. Det \u00e4r vad vi menar med kvalificerat.</div></div>' +
+              '<div class="usp"><div class="utitle">Vi l\u00e4r oss er aff\u00e4r</div><div class="ubody">Innan vi b\u00f6rjar definierar vi tillsammans vilka bolag ni vill n\u00e5, vilka beslutsfattare som har mandat och vad som g\u00f6r ett m\u00f6te v\u00e4rdefullt f\u00f6r era s\u00e4ljare. Relevans f\u00f6re volym.</div></div>' +
+              '<div class="usp"><div class="utitle">Del av ert s\u00e4ljteam</div><div class="ubody">Vi arbetar t\u00e4tt ihop med era s\u00e4ljare \u2014 inte vid sidan av. Vi analyserar l\u00f6pande vilka segment som fungerar och justerar m\u00e5lgrupp och budskap efter vad som ger resultat.</div></div>' +
+            '</div>' +
+            '<div class="sec-title" style="margin-bottom:3mm">Typisk byr\u00e5 vs Informa</div>' +
+            '<table class="ctable"><thead><tr>' +
+              '<th>Typisk m\u00f6tesbokningsbyr\u00e5</th>' +
+              '<th>Informa</th>' +
+            '</tr></thead><tbody>' +
+              '<tr><td>Unga studenter som ringer p\u00e5 lista</td><td>Seniora m\u00f6tesbokare med aff\u00e4rserfarenhet</td></tr>' +
+              '<tr><td>Skriptade samtal utan aff\u00e4rsf\u00f6rst\u00e5else</td><td>Genuina samtal baserade p\u00e5 aff\u00e4rsinsikt</td></tr>' +
+              '<tr><td>Fokus p\u00e5 volym \u2014 fler m\u00f6ten oavsett kvalitet</td><td>F\u00e4rre m\u00f6ten \u2014 med r\u00e4tt beslutsfattare</td></tr>' +
+              '<tr><td>Leverant\u00f6ren f\u00f6rst\u00e5r inte ert erbjudande</td><td>Vi s\u00e4tter oss in i ert erbjudande och marknad</td></tr>' +
+              '<tr><td>Kunden vet knappt varf\u00f6r m\u00f6tet bokas</td><td>Personen vet varf\u00f6r m\u00f6tet sker och har mandat</td></tr>' +
+            '</tbody></table>' +
+            '<div class="footer">informa.se \u00b7 Extern m\u00f6tesbokning B2B \u00b7 50+ \u00e5rs samlad erfarenhet</div>' +
+          '</div>';
+
+        const html = '<!DOCTYPE html><html lang="sv"><head><meta charset="UTF-8">' +
+          '<title>Offertunderlag \u2013 Informa</title>' +
+          '<style>' + css + '</style></head><body>' +
+          page1 + page2 +
+          '<scr' + 'ipt>setTimeout(function(){window.print();},700);<\/scr' + 'ipt>' +
+          '</body></html>';
+
+        const w = window.open('', '_blank');
+        if (w) { w.document.write(html); w.document.close(); }
+        else { setToast('Till\u00e5t popup-f\u00f6nster f\u00f6r att generera PDF'); setTimeout(function(){ setToast(null); }, 3000); }
       }
+
 
       const card = { background:"#fff", borderRadius:20, padding:"2rem",
         boxShadow:"0 4px 24px rgba(0,0,0,0.07)", border:"1px solid rgba(0,0,0,0.06)" };
@@ -982,12 +1122,12 @@
             </div>
 
             <div style={{ textAlign:"center", marginTop:"1.75rem" }}>
-              <button onClick={copyResult} type="button"
+              <button onClick={generatePDF} type="button"
                 style={{ background:PINK, color:"#fff", border:"none", borderRadius:10,
                   padding:"0.7rem 2rem", fontWeight:700, fontSize:"0.95rem",
                   cursor:"pointer", fontFamily:"inherit",
                   boxShadow:"0 4px 16px "+PINK+"44" }}>
-                Kopiera offertunderlag
+                Generera PDF-offert
               </button>
             </div>
           </div>
