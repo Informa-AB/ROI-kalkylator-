@@ -268,7 +268,7 @@
               <input type="number" value={value} min={min} max={max} step={step}
                 onChange={onNum} className="no-spin"
                 style={{
-                  width: suffix==="kr" ? "5.5rem" : "3.5rem",
+                  width: suffix==="kr" ? "7.5rem" : suffix==="mån" || suffix==="st/mån" ? "4rem" : "3.5rem",
                   padding:"0.35rem 0.5rem", borderRadius:"0.5rem",
                   border:"1.5px solid #E5E7EB", fontSize:"0.9rem",
                   fontWeight:700, color:PINK, textAlign:"right",
@@ -899,15 +899,15 @@
               <SliderInput label="Genomsnittligt ordervärde per vunnen affär"
                 value={orderVal} onChange={setOrderVal}
                 min={0} max={2000000} step={5000}
-                format={function(v){ return sek(v) + " kr"; }} unit="kr" />
+                suffix="kr" />
               <SliderInput label="Genomsnittlig kundlivstid (månader)"
                 value={lifetime} onChange={setLifetime}
                 min={1} max={120} step={6}
-                format={function(v){ return v + " mån"; }} unit="mån" />
+                suffix="mån" />
               <SliderInput label="Konverteringsgrad möte → affär (%)"
                 value={closeRate} onChange={setCloseRate}
                 min={1} max={100} step={1}
-                format={function(v){ return v + "%"; }} unit="%" />
+                suffix="%" />
             </div>
 
             {/* Informas leverans */}
@@ -920,11 +920,11 @@
               <SliderInput label="Antal möten/månad Informa levererar"
                 value={informaMeet} onChange={setInformaMeet}
                 min={1} max={80} step={1}
-                format={function(v){ return v + " st/mån"; }} unit="st/mån" />
+                suffix="st/mån" />
               <SliderInput label="Projektlängd (månader)"
                 value={campaignLen} onChange={setCampaignLen}
                 min={1} max={24} step={1}
-                format={function(v){ return v + " månader"; }} unit="mån" />
+                suffix="mån" />
 
               {/* Quick context box */}
               <div style={{ marginTop:"1.5rem", background:"#F9FAFB", borderRadius:12,
