@@ -930,11 +930,11 @@
               <div style={{ marginTop:"1.5rem", background:"#F9FAFB", borderRadius:12,
                 padding:"1rem 1.25rem", fontSize:"0.82rem", color:"#6B7280",
                 borderLeft:"3px solid "+PINK }}>
-                <strong style={{ color:"#374151" }}>Hur vi räknar</strong><br/>
-                Totala möten = {informaMeet} × {campaignLen} mån = <strong>{totalMeetings} möten</strong><br/>
-                Nya affärer = {totalMeetings} × {closeRate}% = <strong>{newDeals.toFixed(1)} affärer</strong><br/>
-                Direktvärde = {newDeals.toFixed(1)} × {sek(orderVal)} = <strong>{sek(directRev)}</strong><br/>
-                LTV-faktor = × {lifetime} mån ({(lifetime/12).toFixed(1)} år) kundlivstid
+                <strong style={{ color:"#374151" }}>Så här räknar vi</strong><br/>
+                <span style={{color:"#374151"}}>1.</span> Informa bokar <strong>{informaMeet} möten/mån</strong> under <strong>{campaignLen} månader</strong> = <strong>{totalMeetings} möten</strong><br/>
+                <span style={{color:"#374151"}}>2.</span> <strong>{closeRate}%</strong> av mötena leder till affär = <strong>{newDeals.toFixed(1)} nya kunder</strong><br/>
+                <span style={{color:"#374151"}}>3.</span> Varje kund är värd <strong>{sek(orderVal)} kr</strong> = <strong>{sek(directRev)} kr</strong> i direktintäkt<br/>
+                <span style={{color:"#374151"}}>4.</span> Kunderna stannar i snitt <strong>{lifetime} månader</strong> → totalt värde <strong style={{color:PINK}}>{sek(ltvTotal)} kr</strong>
               </div>
             </div>
           </div>
@@ -1011,9 +1011,8 @@
               borderBottom:"1px solid rgba(0,0,0,0.08)" }}>
               <div style={{ maxWidth:1140, margin:"0 auto", padding:"0 1.5rem",
                 height:68, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                <div style={{ fontSize:"1.7rem", fontWeight:700, color:PINK,
-                  letterSpacing:"-0.035em", fontFamily:"'DM Sans',sans-serif", userSelect:"none" }}>
-                  Informa
+                <div style={{ userSelect:"none", lineHeight:0 }}>
+                  <svg version='1.1' id='Lager_1' xmlns='http://www.w3.org/2000/svg' xmlnsXlink='http://www.w3.org/1999/xlink' x='0px' y='0px' viewBox='0 0 250 58.7' style={{enableBackground:'new 0 0 250 58.7', height:'32px', width:'auto', display:'block'}} xmlSpace='preserve'><polygon points='7.1,58.1 0,58.1 0,0 7.1,7.4 '/><path d='M59.3,25.1h-5.8v-7.3h5.9C60.3,8.3,65.7,3.4,75.1,3v7.3c-4.5,0.5-7.9,2.4-8.2,7.5c0,0,3.5,0,9.3,0c-2.2,1.8-3.9,3.6-5.1,7.3 h-4.3v33h-7.5L59.3,25.1L59.3,25.1z'/><path d='M116.4,38c0,11.4-9.2,20.6-20.6,20.6S75.1,49.4,75.1,38s9.2-20.6,20.6-20.6S116.4,26.5,116.4,38z M83,38 c0,7.3,5.6,13,12.9,13s12.7-5.8,12.7-13s-5.4-13-12.7-13S83,30.7,83,38z'/><path d='M121.9,37c0-13.4,8.4-19.5,18.2-19.5c2-0.2,4.9-0.1,4.9-0.1s-4.9,4.6-6.3,7.8c-3.9,0.1-8.9,3.6-8.9,11.8v21.1h-7.9L121.9,37 L121.9,37z'/><path d='M49.7,58.1H42V36.5c0-8-3.4-11.7-9.6-11.7s-9.6,3.8-9.6,11.7v21.6h-7.7V36.5c0-13.2,7.2-19.2,17.2-19.2s17.2,6,17.2,19.2 V58.1z'/><g><path d='M178.9,58.1h-7.7V36.5c0-8-3.4-11.7-9.6-11.7s-9.6,3.8-9.6,11.7v21.6h-7.7V36.5c0-13.2,7.2-19.2,17.2-19.2 c10,0,17.2,6,17.2,19.2V58.1z'/><path d='M187.5,17.3c-3.9,0-7.4,0.9-10.1,2.8c1.6,1.8,2.9,4.1,3.7,6.9c1.6-1.5,3.8-2.2,6.4-2.2c6.1,0,9.6,3.8,9.6,11.7v21.6h7.7 V36.5C204.8,23.4,197.6,17.3,187.5,17.3L187.5,17.3z'/></g><path d='M229.1,25c-3.2,0-6.1,1.1-8.3,3c-2.6,2.3-4.2,5.7-4.2,9.6l0,0.4c0,7.3,5.6,13.1,12.9,13.1c3.8,0,9.5,0,9.5,0v7.4 c0,0-5.9,0.2-9.5,0.2c-11.4,0-20.7-9.2-20.7-20.7s9.3-20.7,20.7-20.7c11.4,0,20.6,9.2,20.6,20.7v20h-7.8V38 c0-7.3-5.4-13.1-12.7-13.1L229.1,25L229.1,25z'/></svg>
                 </div>
                 <nav style={{ display:"flex", background:"#EFEFEF", borderRadius:"2rem", padding:"4px", gap:"2px" }}>
                   {[{id:"external",label:"För kunder"},{id:"offer",label:"Offert"},{id:"internal",label:"Intern"}].map(function(item) {
