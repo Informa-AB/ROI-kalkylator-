@@ -989,16 +989,40 @@
             '<div class="footer">informa.se \u00b7 Extern m\u00f6tesbokning B2B \u00b7 50+ \u00e5rs samlad erfarenhet</div>' +
           '</div>';
 
-        const html = '<!DOCTYPE html><html lang="sv"><head><meta charset="UTF-8">' +
-          '<title>Offertunderlag \u2013 Informa</title>' +
-          '<style>' + css + '</style></head><body>' +
-          page1 + page2 +
-          '<scr' + 'ipt>setTimeout(function(){window.print();},700);<\/scr' + 'ipt>' +
-          '</body></html>';
-
-        const w = window.open('', '_blank');
-        if (w) { w.document.write(html); w.document.close(); }
-        else { setToast('Till\u00e5t popup-f\u00f6nster f\u00f6r att generera PDF'); setTimeout(function(){ setToast(null); }, 3000); }
+        const container = document.createElement('div');
+        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fff;';
+        container.innerHTML = '<style>.page{width:794px!important;min-height:1123px;height:1123px!important;padding:61px 76px;overflow:hidden;box-sizing:border-box;background:#fff}</style><style>' + css + '</style>' + page1 + page2;
+        document.body.appendChild(container);
+        setToast('Genererar PDF\u2026');
+        const loadLib = (src) => new Promise((res,rej) => {
+          if (document.querySelector('script[src="'+src+'"]')) { res(); return; }
+          const s = document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej;
+          document.head.appendChild(s);
+        });
+        Promise.all([
+          loadLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'),
+          loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'),
+          document.fonts.ready
+        ]).then(function() {
+          const {jsPDF} = window.jspdf;
+          const pdf = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+          const pgs = container.querySelectorAll('.page');
+          const cap = (el) => window.html2canvas(el,{scale:2,useCORS:true,allowTaint:true,backgroundColor:'#ffffff',width:794,height:1123});
+          return cap(pgs[0]).then(function(c1) {
+            pdf.addImage(c1.toDataURL('image/jpeg',0.93),'JPEG',0,0,210,297);
+            return cap(pgs[1]);
+          }).then(function(c2) {
+            pdf.addPage();
+            pdf.addImage(c2.toDataURL('image/jpeg',0.93),'JPEG',0,0,210,297);
+            document.body.removeChild(container);
+            pdf.save('Informa-offert-' + now.toLocaleDateString('sv-SE') + '.pdf');
+            setToast(null);
+          });
+        }).catch(function() {
+          if (container.parentNode) document.body.removeChild(container);
+          setToast('Fel vid PDF-generering');
+          setTimeout(function(){setToast(null);},3000);
+        });
       }
 
 
