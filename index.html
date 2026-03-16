@@ -904,7 +904,7 @@
                 value={lifetime} onChange={setLifetime}
                 min={1} max={120} step={6}
                 format={function(v){ return v + " mån"; }} unit="mån" />
-              <SliderInput label="Konverteringsgrad möte → affär"
+              <SliderInput label="Konverteringsgrad möte → affär (%)"
                 value={closeRate} onChange={setCloseRate}
                 min={1} max={100} step={1}
                 format={function(v){ return v + "%"; }} unit="%" />
