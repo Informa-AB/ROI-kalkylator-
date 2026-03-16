@@ -385,7 +385,6 @@
         </div>
       );
     }
-
     // ── External calculator ───────────────────────────────────────────────────
     function ExternalCalc() {
       const [extraMeet, setExtraMeet] = useLS("ext_extraMeet", 10);
@@ -442,18 +441,18 @@
                 label="Extra m&#246;ten per m&#229;nad som Informa genererar"
                 value={extraMeet} min={1} max={50} onChange={setExtraMeet} suffix="st" />
               <SliderInput
-                label="Genomsnittligt ordervärde"
-                value={orderVal} min={10000} max={5000000} step={10000} onChange={setOrderVal} suffix="kr" />
+                label="Genomsnittligt ordervärde per affär"
+                value={orderVal} min={0} max={5000000} step={5000} onChange={setOrderVal} suffix="kr" />
               <SliderInput
                 label="Andel m&#246;ten som leder till aff&#228;r"
-                value={closeRate} min={1} max={50} onChange={setCloseRate} suffix="%" />
+                value={closeRate} min={1} max={100} onChange={setCloseRate} suffix="%" />
 
               <div style={{ marginTop:"1.5rem", background:"#F9FAFB", borderRadius:"0.875rem",
                 padding:"1rem 1.125rem", border:"1px solid #E5E7EB" }}>
                 <p style={{ margin:0, fontSize:"0.8rem", color:"#6B7280", lineHeight:1.6 }}>
                   <strong style={{ color:"#374151" }}>S&#229; h&#228;r r&#228;knar vi:</strong><br />
                   {extraMeet} m&#246;ten &#215; {closeRate}% avslutningsgrad = <strong>{Math.round(extraMeet*(closeRate/100)*10)/10} nya aff&#228;rer/m&#229;n</strong>
-      2           {" "}&#215; {sek(orderVal)} kr = <strong style={{ color:PINK }}>{sek(extraMonthly)} kr/m&#229;n</strong>
+                  {" "}&#215; {sek(orderVal)} kr = <strong style={{ color:PINK }}>{sek(extraMonthly)} kr/m&#229;n</strong>
                 </p>
               </div>
             </div>
@@ -551,6 +550,7 @@
         </div>
       );
     }
+
 
     // ────────── Internal calculator ──────────────────────────────────────────
     function InternalCalc() {
@@ -828,14 +828,11 @@
           </div>
         </div>
       );
-    }
-    // ── Offer calculator ──────────────────────────────────────────────────────
+    }    // ── Offer calculator ──────────────────────────────────────────────────────
     function OfferCalc() {
       const [orderVal,    setOrderVal]    = useLS("off_orderVal",    250000);
-      const [lifetime,    setLifetime]    = useLS("off_lifetime",    3);
+      const [lifetime,    setLifetime]    = useLS("off_lifetime",    36);
       const [closeRate,   setCloseRate]   = useLS("off_closeRate",   15);
-      const [curMeet,     setCurMeet]     = useLS("off_curMeet",     10);
-      const [activeShare, setActiveShare] = useLS("off_activeShare", 70);
       const [informaMeet, setInformaMeet] = useLS("off_informaMeet", 15);
       const [campaignLen, setCampaignLen] = useLS("off_campaignLen", 12);
       const [toast,       setToast]       = useState(null);
@@ -844,7 +841,7 @@
       const rawDeals      = totalMeetings * (closeRate / 100);
       const newDeals      = Math.round(rawDeals * 10) / 10;
       const directRev     = rawDeals * orderVal;
-      const ltvTotal      = directRev * lifetime;
+      const ltvTotal      = directRev * (lifetime / 12);
 
       const aLtv    = useCountUp(ltvTotal);
       const aDirect = useCountUp(directRev);
@@ -858,7 +855,7 @@
           "Möten Informa tillför: " + totalMeetings + "\n" +
           "Förväntade nya affärer: " + newDeals.toFixed(1) + "\n" +
           "Direkt intäktspåverkan: " + sek(directRev) + "\n" +
-          "Livstidsvärde (x" + lifetime + " år): " + sek(ltvTotal) + "\n";
+          "Livstidsvärde (x" + (lifetime/12).toFixed(1) + " år): " + sek(ltvTotal) + "\n";
         navigator.clipboard.writeText(txt).then(function() {
           setToast("Kopierat till urklipp!");
           setTimeout(function() { setToast(null); }, 2500);
@@ -899,25 +896,17 @@
                 borderBottom:"2px solid "+PINK+"22" }}>
                 Kundens siffror
               </h2>
-              <SliderInput label="Genomsnittligt ordervärde per affär"
+              <SliderInput label="Genomsnittligt ordervärde per vunnen affär"
                 value={orderVal} onChange={setOrderVal}
-                min={50000} max={2000000} step={10000}
-                format={function(v){ return sek(v); }} unit="SEK" />
-              <SliderInput label="Genomsnittlig kundlivstid"
+                min={0} max={2000000} step={5000}
+                format={function(v){ return sek(v) + " kr"; }} unit="kr" />
+              <SliderInput label="Genomsnittlig kundlivstid (månader)"
                 value={lifetime} onChange={setLifetime}
-                min={1} max={10} step={1}
-                format={function(v){ return v + " år"; }} unit="år" />
+                min={1} max={120} step={6}
+                format={function(v){ return v + " mån"; }} unit="mån" />
               <SliderInput label="Konverteringsgrad möte → affär"
                 value={closeRate} onChange={setCloseRate}
-                min={1} max={60} step={1}
-                format={function(v){ return v + "%"; }} unit="%" />
-              <SliderInput label="Antal säljmöten/månad idag (totalt)"
-                value={curMeet} onChange={setCurMeet}
-                min={0} max={100} step={1}
-                format={function(v){ return v + " st"; }} unit="st" />
-              <SliderInput label="Andel aktivt bokade möten idag"
-                value={activeShare} onChange={setActiveShare}
-                min={0} max={100} step={5}
+                min={1} max={100} step={1}
                 format={function(v){ return v + "%"; }} unit="%" />
             </div>
 
@@ -932,7 +921,7 @@
                 value={informaMeet} onChange={setInformaMeet}
                 min={1} max={80} step={1}
                 format={function(v){ return v + " st/mån"; }} unit="st/mån" />
-              <SliderInput label="Kampanjlängd"
+              <SliderInput label="Projektlängd (månader)"
                 value={campaignLen} onChange={setCampaignLen}
                 min={1} max={24} step={1}
                 format={function(v){ return v + " månader"; }} unit="mån" />
@@ -945,7 +934,7 @@
                 Totala möten = {informaMeet} × {campaignLen} mån = <strong>{totalMeetings} möten</strong><br/>
                 Nya affärer = {totalMeetings} × {closeRate}% = <strong>{newDeals.toFixed(1)} affärer</strong><br/>
                 Direktvärde = {newDeals.toFixed(1)} × {sek(orderVal)} = <strong>{sek(directRev)}</strong><br/>
-                LTV-faktor = × {lifetime} år kundlivstid
+                LTV-faktor = × {lifetime} mån ({(lifetime/12).toFixed(1)} år) kundlivstid
               </div>
             </div>
           </div>
@@ -960,7 +949,7 @@
               </div>
               <div style={bigNum}>{sek(aLtv)}</div>
               <div style={{ fontSize:"0.9rem", color:"#9CA3AF", marginTop:"0.4rem" }}>
-                baserat på {lifetime} års genomsnittlig kundlivstid
+                baserat på {lifetime} månaders ({(lifetime/12).toFixed(1)} år) genomsnittlig kundlivstid
               </div>
             </div>
 
