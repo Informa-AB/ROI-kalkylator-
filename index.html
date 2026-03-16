@@ -829,6 +829,183 @@
         </div>
       );
     }
+    // ── Offer calculator ──────────────────────────────────────────────────────
+    function OfferCalc() {
+      const [orderVal,    setOrderVal]    = useLS("off_orderVal",    250000);
+      const [lifetime,    setLifetime]    = useLS("off_lifetime",    3);
+      const [closeRate,   setCloseRate]   = useLS("off_closeRate",   15);
+      const [curMeet,     setCurMeet]     = useLS("off_curMeet",     10);
+      const [activeShare, setActiveShare] = useLS("off_activeShare", 70);
+      const [informaMeet, setInformaMeet] = useLS("off_informaMeet", 15);
+      const [campaignLen, setCampaignLen] = useLS("off_campaignLen", 12);
+      const [toast,       setToast]       = useState(null);
+
+      const totalMeetings = informaMeet * campaignLen;
+      const rawDeals      = totalMeetings * (closeRate / 100);
+      const newDeals      = Math.round(rawDeals * 10) / 10;
+      const directRev     = rawDeals * orderVal;
+      const ltvTotal      = directRev * lifetime;
+
+      const aLtv    = useCountUp(ltvTotal);
+      const aDirect = useCountUp(directRev);
+      const aDeals  = useCountUp(newDeals);
+      const aMeet   = useCountUp(totalMeetings);
+
+      function copyResult() {
+        const txt =
+          "Offertunderlag – Informa\n" +
+          "────────────────────────\n" +
+          "Möten Informa tillför: " + totalMeetings + "\n" +
+          "Förväntade nya affärer: " + newDeals.toFixed(1) + "\n" +
+          "Direkt intäktspåverkan: " + sek(directRev) + "\n" +
+          "Livstidsvärde (x" + lifetime + " år): " + sek(ltvTotal) + "\n";
+        navigator.clipboard.writeText(txt).then(function() {
+          setToast("Kopierat till urklipp!");
+          setTimeout(function() { setToast(null); }, 2500);
+        });
+      }
+
+      const card = { background:"#fff", borderRadius:20, padding:"2rem",
+        boxShadow:"0 4px 24px rgba(0,0,0,0.07)", border:"1px solid rgba(0,0,0,0.06)" };
+      const label = { fontSize:"0.78rem", fontWeight:600, color:"#6B7280",
+        textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:"0.25rem" };
+      const bigNum = { fontSize:"clamp(2.4rem,5vw,3.8rem)", fontWeight:800,
+        color:PINK, letterSpacing:"-0.03em", lineHeight:1.05 };
+      const secNum = { fontSize:"1.5rem", fontWeight:700, color:GREEN, lineHeight:1.1 };
+      const outLabel = { fontSize:"0.75rem", fontWeight:600, color:"#9CA3AF",
+        textTransform:"uppercase", letterSpacing:"0.06em", marginTop:"0.15rem" };
+
+      return (
+        <div style={{ maxWidth:860, margin:"0 auto" }}>
+          {toast && <Toast msg={toast} />}
+
+          <div style={{ textAlign:"center", marginBottom:"2.5rem" }}>
+            <h1 style={{ fontSize:"clamp(1.6rem,3.5vw,2.4rem)", fontWeight:800,
+              color:"#111827", letterSpacing:"-0.03em", marginBottom:"0.5rem" }}>
+              Offertunderlag & ROI-kalkyl
+            </h1>
+            <p style={{ color:"#6B7280", fontSize:"1rem", maxWidth:520, margin:"0 auto" }}>
+              Beräkna affärsvärdet av Informas mötesbokning för kunden – inkl. kundlivstid.
+            </p>
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(340px,1fr))",
+            gap:"1.5rem", marginBottom:"2rem" }}>
+
+            {/* Kundens siffror */}
+            <div style={card}>
+              <h2 style={{ fontSize:"1rem", fontWeight:700, color:"#374151",
+                marginBottom:"1.5rem", paddingBottom:"0.75rem",
+                borderBottom:"2px solid "+PINK+"22" }}>
+                Kundens siffror
+              </h2>
+              <SliderInput label="Genomsnittligt ordervärde per affär"
+                value={orderVal} onChange={setOrderVal}
+                min={50000} max={2000000} step={10000}
+                format={function(v){ return sek(v); }} unit="SEK" />
+              <SliderInput label="Genomsnittlig kundlivstid"
+                value={lifetime} onChange={setLifetime}
+                min={1} max={10} step={1}
+                format={function(v){ return v + " år"; }} unit="år" />
+              <SliderInput label="Konverteringsgrad möte → affär"
+                value={closeRate} onChange={setCloseRate}
+                min={1} max={60} step={1}
+                format={function(v){ return v + "%"; }} unit="%" />
+              <SliderInput label="Antal säljmöten/månad idag (totalt)"
+                value={curMeet} onChange={setCurMeet}
+                min={0} max={100} step={1}
+                format={function(v){ return v + " st"; }} unit="st" />
+              <SliderInput label="Andel aktivt bokade möten idag"
+                value={activeShare} onChange={setActiveShare}
+                min={0} max={100} step={5}
+                format={function(v){ return v + "%"; }} unit="%" />
+            </div>
+
+            {/* Informas leverans */}
+            <div style={card}>
+              <h2 style={{ fontSize:"1rem", fontWeight:700, color:"#374151",
+                marginBottom:"1.5rem", paddingBottom:"0.75rem",
+                borderBottom:"2px solid "+PINK+"22" }}>
+                Informas leverans
+              </h2>
+              <SliderInput label="Antal möten/månad Informa levererar"
+                value={informaMeet} onChange={setInformaMeet}
+                min={1} max={80} step={1}
+                format={function(v){ return v + " st/mån"; }} unit="st/mån" />
+              <SliderInput label="Kampanjlängd"
+                value={campaignLen} onChange={setCampaignLen}
+                min={1} max={24} step={1}
+                format={function(v){ return v + " månader"; }} unit="mån" />
+
+              {/* Quick context box */}
+              <div style={{ marginTop:"1.5rem", background:"#F9FAFB", borderRadius:12,
+                padding:"1rem 1.25rem", fontSize:"0.82rem", color:"#6B7280",
+                borderLeft:"3px solid "+PINK }}>
+                <strong style={{ color:"#374151" }}>Hur vi räknar</strong><br/>
+                Totala möten = {informaMeet} × {campaignLen} mån = <strong>{totalMeetings} möten</strong><br/>
+                Nya affärer = {totalMeetings} × {closeRate}% = <strong>{newDeals.toFixed(1)} affärer</strong><br/>
+                Direktvärde = {newDeals.toFixed(1)} × {sek(orderVal)} = <strong>{sek(directRev)}</strong><br/>
+                LTV-faktor = × {lifetime} år kundlivstid
+              </div>
+            </div>
+          </div>
+
+          {/* Results hero */}
+          <div style={{ ...card, background:"linear-gradient(135deg,#fff 60%,"+PINK+"08)",
+            borderColor:PINK+"33" }}>
+            <div style={{ textAlign:"center", marginBottom:"2rem" }}>
+              <div style={{ fontSize:"0.8rem", fontWeight:700, color:PINK,
+                textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:"0.5rem" }}>
+                Totalt affärsvärde inkl. kundlivstid
+              </div>
+              <div style={bigNum}>{sek(aLtv)}</div>
+              <div style={{ fontSize:"0.9rem", color:"#9CA3AF", marginTop:"0.4rem" }}>
+                baserat på {lifetime} års genomsnittlig kundlivstid
+              </div>
+            </div>
+
+            <div style={{ display:"grid",
+              gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:"1.25rem" }}>
+
+              <div style={{ textAlign:"center", padding:"1rem",
+                background:"#F9FAFB", borderRadius:14 }}>
+                <div style={secNum}>{Math.round(aMeet)}</div>
+                <div style={outLabel}>Möten Informa tillför</div>
+              </div>
+
+              <div style={{ textAlign:"center", padding:"1rem",
+                background:"#F9FAFB", borderRadius:14 }}>
+                <div style={secNum}>{aDeals.toFixed(1)}</div>
+                <div style={outLabel}>Förväntade nya affärer</div>
+              </div>
+
+              <div style={{ textAlign:"center", padding:"1rem",
+                background:"#F9FAFB", borderRadius:14 }}>
+                <div style={{ ...secNum, color:"#374151" }}>{sek(aDirect)}</div>
+                <div style={outLabel}>Direkt intäktspåverkan</div>
+              </div>
+
+              <div style={{ textAlign:"center", padding:"1rem",
+                background:"#F9FAFB", borderRadius:14 }}>
+                <div style={{ ...secNum, color:PINK }}>{sek(aLtv)}</div>
+                <div style={outLabel}>Livstidsvärde nya kunder</div>
+              </div>
+            </div>
+
+            <div style={{ textAlign:"center", marginTop:"1.75rem" }}>
+              <button onClick={copyResult} type="button"
+                style={{ background:PINK, color:"#fff", border:"none", borderRadius:10,
+                  padding:"0.7rem 2rem", fontWeight:700, fontSize:"0.95rem",
+                  cursor:"pointer", fontFamily:"inherit",
+                  boxShadow:"0 4px 16px "+PINK+"44" }}>
+                Kopiera offertunderlag
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
 
     // ────────── App ────────────────────────────────────────────────────────────
     function App() {
@@ -850,7 +1027,7 @@
                   Informa
                 </div>
                 <nav style={{ display:"flex", background:"#EFEFEF", borderRadius:"2rem", padding:"4px", gap:"2px" }}>
-                  {[{id:"external",label:"För kunder"},{id:"internal",label:"Intern"}].map(function(item) {
+                  {[{id:"external",label:"För kunder"},{id:"offer",label:"Offert"},{id:"internal",label:"Intern"}].map(function(item) {
                     return (
                       <button key={item.id} type="button" onClick={() => setTab(item.id)}
                         style={{ padding:"0.45rem 1.25rem", borderRadius:"2rem", border:"none",
@@ -871,6 +1048,9 @@
             <main style={{ maxWidth:1140, margin:"0 auto", padding:"2.75rem 1.5rem 5rem" }}>
               {tab === "external" && (
                 <div className="tab-in" key="ext"><ExternalCalc /></div>
+              )}
+              {tab === "offer" && (
+                <div className="tab-in" key="off"><OfferCalc /></div>
               )}
               {tab === "internal" && (
                 <div className="tab-in" key="int">
