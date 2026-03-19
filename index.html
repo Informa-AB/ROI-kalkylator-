@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ää<!DOCTYPE html>
 <html lang="sv">
 <head>
   <meta charset="UTF-8" />
@@ -266,7 +266,7 @@
             </div>
             <div className="slider-number-wrap" style={{ display:"flex", alignItems:"center", gap:"0.2rem", flexShrink:0 }}>
               <input type="number" value={value} min={min} max={max} step={step}
-                onChange={onNum} className="no-spin"
+                onChange={onNum} onFocus={e => e.target.select()} className="no-spin"
                 style={{
                   width: suffix==="kr" ? "7.5rem" : suffix==="mån" || suffix==="st/mån" ? "4rem" : "3.5rem",
                   padding:"0.35rem 0.5rem", borderRadius:"0.5rem",
@@ -442,7 +442,7 @@
                 value={extraMeet} min={1} max={50} onChange={setExtraMeet} suffix="st" />
               <SliderInput
                 label="Genomsnittligt ordervärde per affär"
-                value={orderVal} min={0} max={5000000} step={5000} onChange={setOrderVal} suffix="kr" />
+                value={orderVal} min={0} max={2000000} step={5000} onChange={setOrderVal} suffix="kr" />
               <SliderInput
                 label="Andel m&#246;ten som leder till aff&#228;r"
                 value={closeRate} min={1} max={100} onChange={setCloseRate} suffix="%" />
