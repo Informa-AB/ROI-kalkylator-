@@ -342,7 +342,7 @@
             ) : (
               <React.Fragment>
                 <input
-                  type="text" autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false}
+                  type="password" autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false}
                   value={pin}
                   onChange={e => { setPin(e.target.value); setError(false); }}
                   onKeyDown={e => { if (e.key === "Enter") tryUnlock(); }}
