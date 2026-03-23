@@ -1145,6 +1145,138 @@
     }
 
 
+
+    // ──────────────────────── ROI + Graf ─────────────────────────────
+    function GrafCalc() {
+      const [extraMeet, setExtraMeet] = useLS("ext_extraMeet", 10);
+      const [orderVal,  setOrderVal]  = useLS("ext_orderVal",  250000);
+      const [closeRate, setCloseRate] = useLS("ext_closeRate", 15);
+      const [renewal,   setRenewal]   = React.useState(70);
+      const [yrs,       setYrs]       = React.useState(5);
+      const [hover,     setHover]     = React.useState(null);
+
+      const fmt  = n => new Intl.NumberFormat('sv-SE').format(Math.round(n));
+      const fmtA = n => n>=1e9?(n/1e9).toFixed(1)+' mdr':n>=1e6?(n/1e6).toFixed(1)+' mkr':Math.round(n/1e3)+'K';
+
+      const r         = renewal / 100;
+      const annualNew = extraMeet * 12 * (closeRate / 100) * orderVal;
+
+      const yearData = [];
+      let cumul = 0;
+      for (let y = 1; y <= yrs; y++) {
+        const annualRev = r < 1 ? annualNew * (1 - Math.pow(r, y)) / (1 - r) : annualNew * y;
+        cumul += annualRev;
+        yearData.push({ year: y, annualRev, cumul });
+      }
+
+      const maxC = Math.max(yearData.length ? yearData[yearData.length-1].cumul : 1, 1);
+      const W=700, H=280, PL=76, PR=24, PT=20, PB=38;
+      const cW=W-PL-PR, cH=H-PT-PB;
+      const xS = i => PL + (yrs>1 ? i/(yrs-1) : 0.5) * cW;
+      const yS = v => PT + cH - (v/maxC)*cH;
+
+      const pts = yearData.map((d,i) => ({ x:xS(i), y:yS(d.cumul), ...d }));
+      const linePath = pts.map((p,i)=> i===0?`M ${p.x},${p.y}`:`L ${p.x},${p.y}`).join(' ');
+      const areaPath = pts.length
+        ? `M ${pts[0].x},${yS(0)} ${pts.map(p=>`L ${p.x},${p.y}`).join(' ')} L ${pts[pts.length-1].x},${yS(0)} Z`
+        : '';
+
+      const mult = yearData.length>=2 ? (yearData[yrs-1].annualRev/yearData[0].annualRev).toFixed(1) : '1.0';
+
+      const sliders = [
+        { label:'Extra möten / mån',           val:extraMeet, set:setExtraMeet, min:1,     max:50,      step:1,     unit:'st', disp:v=>v },
+        { label:'Genomsnittligt ordervärde',    val:orderVal,  set:setOrderVal,  min:50000, max:2000000, step:10000, unit:'kr', disp:v=>fmt(v) },
+        { label:'Avslutningsgrad',              val:closeRate, set:setCloseRate, min:1,     max:80,      step:1,     unit:'%',  disp:v=>v },
+        { label:'Kundlojalitet (förnyelse)',     val:renewal,   set:setRenewal,   min:10,    max:100,     step:5,     unit:'%',  disp:v=>v },
+        { label:'Antal år',                     val:yrs,       set:setYrs,       min:2,     max:10,      step:1,     unit:'år', disp:v=>v },
+      ];
+
+      return (
+        <div style={{ maxWidth:860, margin:'0 auto', padding:'1.5rem 0' }}>
+
+          {/* Summary cards */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'1rem', marginBottom:'1.8rem' }}>
+            {[
+              { label:'Nytt kundvärde per år',    val:fmt(annualNew)+' kr', sub:'från Informas möten',  c:PINK, bg:PINK+'18' },
+              { label:'Ackumulerat värde år '+yrs, val:fmt(maxC)+' kr',     sub:'med förnyelseffekt',   c:'#222', bg:'#f5f5f5' },
+              { label:'Tillväxt år 1 → '+yrs,     val:mult+'×',             sub:'ränta-på-ränta effekt',c:'#222', bg:'#f5f5f5' },
+            ].map((card,i) => (
+              <div key={i} style={{ background:card.bg, borderRadius:'1rem', padding:'1.1rem 1.4rem' }}>
+                <div style={{ fontSize:'0.63rem', textTransform:'uppercase', letterSpacing:'0.1em', color:card.c, marginBottom:'0.25rem', opacity:0.75 }}>{card.label}</div>
+                <div style={{ fontSize:'1.45rem', fontWeight:900, color:card.c, lineHeight:1.1 }}>{card.val}</div>
+                <div style={{ fontSize:'0.68rem', color:'#aaa', marginTop:'0.2rem' }}>{card.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Chart */}
+          <div style={{ background:'white', borderRadius:'1.2rem', padding:'1.2rem 1rem 0.8rem', boxShadow:'0 2px 20px rgba(0,0,0,0.06)', marginBottom:'1.5rem' }}>
+            <div style={{ fontSize:'0.7rem', fontWeight:600, color:'#ccc', textTransform:'uppercase', letterSpacing:'0.09em', marginBottom:'0.4rem', paddingLeft:'0.5rem' }}>Ackumulerat kundvärde</div>
+            <svg viewBox={`0 0 ${W} ${H}`} style={{ width:'100%', height:'auto' }}>
+              <defs>
+                <linearGradient id="roiGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={PINK} stopOpacity="0.28" />
+                  <stop offset="100%" stopColor={PINK} stopOpacity="0.02" />
+                </linearGradient>
+              </defs>
+              {[0,0.25,0.5,0.75,1].map((f,i) => {
+                const v=maxC*f, yy=yS(v);
+                return (
+                  <g key={i}>
+                    <line x1={PL} y1={yy} x2={W-PR} y2={yy} stroke={i===0?'#e8e8e8':'#f4f4f4'} strokeWidth="1"/>
+                    {f>0 && <text x={PL-8} y={yy+4} textAnchor="end" fontSize="9" fill="#ccc">{fmtA(v)}</text>}
+                  </g>
+                );
+              })}
+              <path d={areaPath} fill="url(#roiGrad)"/>
+              <path d={linePath} fill="none" stroke={PINK} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
+              {pts.map((p,i) => (
+                <g key={i} style={{ cursor:'pointer' }} onMouseEnter={()=>setHover(i)} onMouseLeave={()=>setHover(null)}>
+                  <text x={p.x} y={H-6} textAnchor="middle" fontSize="11" fill="#ccc">År {p.year}</text>
+                  <circle cx={p.x} cy={p.y} r={hover===i?7:5} fill={PINK} stroke="white" strokeWidth="2" style={{ transition:'r 0.1s' }}/>
+                  {hover===i && (
+                    <g>
+                      <rect x={Math.min(p.x-78,W-PR-158)} y={p.y-72} width={156} height={64} rx="8"
+                        fill="white" stroke="#f0f0f0" strokeWidth="1"
+                        filter="drop-shadow(0 3px 8px rgba(0,0,0,0.08))"/>
+                      <text x={Math.min(p.x,W-PR-80)} y={p.y-52} textAnchor="middle" fontSize="9.5" fill="#bbb">Ackumulerat år {p.year}</text>
+                      <text x={Math.min(p.x,W-PR-80)} y={p.y-33} textAnchor="middle" fontSize="13" fontWeight="700" fill={PINK}>{fmt(p.cumul)} kr</text>
+                      <text x={Math.min(p.x,W-PR-80)} y={p.y-14} textAnchor="middle" fontSize="9.5" fill="#bbb">Årsintäkt: {fmt(p.annualRev)} kr</text>
+                    </g>
+                  )}
+                </g>
+              ))}
+            </svg>
+          </div>
+
+          {/* Sliders */}
+          <div style={{ background:'white', borderRadius:'1.2rem', padding:'1.5rem', boxShadow:'0 2px 20px rgba(0,0,0,0.06)' }}>
+            <div style={{ fontSize:'0.7rem', fontWeight:600, color:'#ccc', textTransform:'uppercase', letterSpacing:'0.09em', marginBottom:'1.2rem' }}>Justera antaganden</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem 2.5rem' }}>
+              {sliders.map((s,i) => (
+                <div key={i}>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'0.3rem' }}>
+                    <span style={{ fontSize:'0.77rem', color:'#666' }}>{s.label}</span>
+                    <span style={{ fontSize:'0.77rem', fontWeight:700, color:PINK }}>{s.disp(s.val)} {s.unit}</span>
+                  </div>
+                  <input type="range" min={s.min} max={s.max} step={s.step} value={s.val}
+                    onChange={e => s.set(Number(e.target.value))}
+                    style={{ width:'100%', accentColor:PINK }}/>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop:'1.3rem', padding:'0.9rem 1.1rem', background:'#fafafa', borderRadius:'0.8rem', borderLeft:'3px solid '+PINK }}>
+              <span style={{ fontSize:'0.74rem', color:'#777', lineHeight:1.65 }}>
+                <strong style={{ color:'#444' }}>Ränta-på-ränta: </strong>
+                Varje kund Informa hjälper er vinna stannar kvar med {renewal}% sannolikhet nästa år. Det innebär att kundbasen och intäkterna växer år för år — i år {yrs} genererar affärerna {mult}× mer värde än år 1.
+              </span>
+            </div>
+          </div>
+
+        </div>
+      );
+    }
+
     // ────────── App ────────────────────────────────────────────────────────────
     function App() {
       const [tab, setTab] = useState(() => { const _t = new URLSearchParams(window.location.search).get("tab"); return (_t === "internal" || _t === "external") ? _t : "external"; });
@@ -1166,7 +1298,7 @@
                   <svg version='1.1' id='Lager_1' xmlns='http://www.w3.org/2000/svg' xmlnsXlink='http://www.w3.org/1999/xlink' x='0px' y='0px' viewBox='0 0 250 58.7' style={{enableBackground:'new 0 0 250 58.7', height:'32px', width:'auto', display:'block'}} xmlSpace='preserve'><polygon points='7.1,58.1 0,58.1 0,0 7.1,7.4 '/><path d='M59.3,25.1h-5.8v-7.3h5.9C60.3,8.3,65.7,3.4,75.1,3v7.3c-4.5,0.5-7.9,2.4-8.2,7.5c0,0,3.5,0,9.3,0c-2.2,1.8-3.9,3.6-5.1,7.3 h-4.3v33h-7.5L59.3,25.1L59.3,25.1z'/><path d='M116.4,38c0,11.4-9.2,20.6-20.6,20.6S75.1,49.4,75.1,38s9.2-20.6,20.6-20.6S116.4,26.5,116.4,38z M83,38 c0,7.3,5.6,13,12.9,13s12.7-5.8,12.7-13s-5.4-13-12.7-13S83,30.7,83,38z'/><path d='M121.9,37c0-13.4,8.4-19.5,18.2-19.5c2-0.2,4.9-0.1,4.9-0.1s-4.9,4.6-6.3,7.8c-3.9,0.1-8.9,3.6-8.9,11.8v21.1h-7.9L121.9,37 L121.9,37z'/><path d='M49.7,58.1H42V36.5c0-8-3.4-11.7-9.6-11.7s-9.6,3.8-9.6,11.7v21.6h-7.7V36.5c0-13.2,7.2-19.2,17.2-19.2s17.2,6,17.2,19.2 V58.1z'/><g><path d='M178.9,58.1h-7.7V36.5c0-8-3.4-11.7-9.6-11.7s-9.6,3.8-9.6,11.7v21.6h-7.7V36.5c0-13.2,7.2-19.2,17.2-19.2 c10,0,17.2,6,17.2,19.2V58.1z'/><path d='M187.5,17.3c-3.9,0-7.4,0.9-10.1,2.8c1.6,1.8,2.9,4.1,3.7,6.9c1.6-1.5,3.8-2.2,6.4-2.2c6.1,0,9.6,3.8,9.6,11.7v21.6h7.7 V36.5C204.8,23.4,197.6,17.3,187.5,17.3L187.5,17.3z'/></g><path d='M229.1,25c-3.2,0-6.1,1.1-8.3,3c-2.6,2.3-4.2,5.7-4.2,9.6l0,0.4c0,7.3,5.6,13.1,12.9,13.1c3.8,0,9.5,0,9.5,0v7.4 c0,0-5.9,0.2-9.5,0.2c-11.4,0-20.7-9.2-20.7-20.7s9.3-20.7,20.7-20.7c11.4,0,20.6,9.2,20.6,20.7v20h-7.8V38 c0-7.3-5.4-13.1-12.7-13.1L229.1,25L229.1,25z'/></svg>
                 </div>
                 <nav style={{ display:"flex", background:"#EFEFEF", borderRadius:"2rem", padding:"4px", gap:"2px" }}>
-                  {[{id:"external",label:"För kunder"},{id:"offer",label:"ROI-Kalkyl"},{id:"internal",label:"Intern"}].map(function(item) {
+                  {[{id:"external",label:"För kunder"},{id:"offer",label:"ROI-Kalkyl"},{id:"graf",label:"ROI + Graf"},{id:"internal",label:"Intern"}].map(function(item) {
                     return (
                       <button key={item.id} type="button" onClick={() => setTab(item.id)}
                         style={{ padding:"0.45rem 1.25rem", borderRadius:"2rem", border:"none",
@@ -1191,6 +1323,9 @@
               {tab === "offer" && (
                 <div className="tab-in" key="off"><OfferCalc /></div>
               )}
+          {tab === "graf" && (
+            <div className="tab-in" key="graf"><GrafCalc /></div>
+          )}
               {tab === "internal" && (
                 <div className="tab-in" key="int">
                   <InternalCalc />
