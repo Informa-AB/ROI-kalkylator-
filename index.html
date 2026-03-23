@@ -1149,6 +1149,8 @@
     function App() {
       const [tab, setTab] = useState(() => { const _t = new URLSearchParams(window.location.search).get("tab"); return (_t === "internal" || _t === "external") ? _t : "external"; });
       const [pinOk, setPinOk] = useState(false);
+      const [appUnlocked, setAppUnlocked] = useState(false);
+      if (!appUnlocked) return <PinScreen onUnlock={() => { setAppUnlocked(true); setPinOk(true); }} />;
 
       return (
         <React.Fragment>
@@ -1191,7 +1193,7 @@
               )}
               {tab === "internal" && (
                 <div className="tab-in" key="int">
-                  {pinOk ? <InternalCalc /> : <PinScreen onUnlock={() => setPinOk(true)} />}
+                  <InternalCalc />
                 </div>
               )}
             </main>
