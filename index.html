@@ -1156,7 +1156,7 @@
       const [hover,     setHover]     = React.useState(null);
 
       const fmt  = n => new Intl.NumberFormat('sv-SE').format(Math.round(n));
-      const fmtA = n => n>=1e9?(n/1e9).toFixed(1)+' mdr':n>=1e6?(n/1e6).toFixed(1)+' mkr':Math.round(n/1e3)+'K';
+      const fmtM = n => n>=1e9?(n/1e9).toFixed(1)+' mdr':n>=1e6?(n/1e6).toFixed(1)+' mkr':n>=1e3?Math.round(n/1e3)+'K':'0';
 
       const r         = renewal / 100;
       const annualNew = extraMeet * 12 * (closeRate / 100) * orderVal;
@@ -1169,8 +1169,8 @@
         yearData.push({ year: y, annualRev, cumul });
       }
 
-      const maxC = Math.max(yearData.length ? yearData[yearData.length-1].cumul : 1, 1);
-      const W=700, H=280, PL=76, PR=24, PT=20, PB=38;
+      const maxC = Math.max(yearData.length ? yearData[yearData.length-1].cumul * 1.12 : 1, 1);
+      const W=720, H=300, PL=72, PR=32, PT=48, PB=44;
       const cW=W-PL-PR, cH=H-PT-PB;
       const xS = i => PL + (yrs>1 ? i/(yrs-1) : 0.5) * cW;
       const yS = v => PT + cH - (v/maxC)*cH;
@@ -1182,66 +1182,86 @@
         : '';
 
       const mult = yearData.length>=2 ? (yearData[yrs-1].annualRev/yearData[0].annualRev).toFixed(1) : '1.0';
+      const totalVal = yearData.length ? yearData[yearData.length-1].cumul : 0;
 
       const sliders = [
-        { label:'Extra möten / mån',           val:extraMeet, set:setExtraMeet, min:1,     max:50,      step:1,     unit:'st', disp:v=>v },
-        { label:'Genomsnittligt ordervärde',    val:orderVal,  set:setOrderVal,  min:50000, max:2000000, step:10000, unit:'kr', disp:v=>fmt(v) },
-        { label:'Avslutningsgrad',              val:closeRate, set:setCloseRate, min:1,     max:80,      step:1,     unit:'%',  disp:v=>v },
-        { label:'Kundlojalitet (förnyelse)',     val:renewal,   set:setRenewal,   min:10,    max:100,     step:5,     unit:'%',  disp:v=>v },
-        { label:'Antal år',                     val:yrs,       set:setYrs,       min:2,     max:10,      step:1,     unit:'år', disp:v=>v },
+        { label:'Extra möten / mån (Informa)',  val:extraMeet, set:setExtraMeet, min:1,  max:50,      step:1,     unit:'st', disp:v=>v },
+        { label:'Genomsnittligt ordervärde',     val:orderVal,  set:setOrderVal,  min:0,  max:2000000, step:10000, unit:'kr', disp:v=>fmt(v) },
+        { label:'Avslutningsgrad',               val:closeRate, set:setCloseRate, min:1,  max:80,      step:1,     unit:'%',  disp:v=>v },
+        { label:'Kundretention per år',          val:renewal,   set:setRenewal,   min:10, max:100,     step:5,     unit:'%',  disp:v=>v },
+        { label:'Tidshorisont',                  val:yrs,       set:setYrs,       min:2,  max:10,      step:1,     unit:'år', disp:v=>v },
       ];
 
       return (
-        <div style={{ maxWidth:860, margin:'0 auto', padding:'1.5rem 0' }}>
+        <div style={{ maxWidth:900, margin:'0 auto', padding:'2rem 0' }}>
 
-          {/* Summary cards */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'1rem', marginBottom:'1.8rem' }}>
+          {/* Hero */}
+          <div style={{ textAlign:'center', marginBottom:'2rem' }}>
+            <div style={{ fontSize:'0.68rem', fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'0.18em', marginBottom:'0.6rem' }}>Kumulativ LTV-effekt med Informa</div>
+            <div style={{ fontSize:'2.8rem', fontWeight:900, color:'#1a1a1a', lineHeight:1, marginBottom:'0.4rem' }}>{fmt(totalVal)} kr</div>
+            <div style={{ fontSize:'0.82rem', color:'#bbb' }}>Ackumulerat kundvärde efter {yrs} år &nbsp;·&nbsp; {mult}× intäktsökning från år 1</div>
+          </div>
+
+          {/* Cards */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'1rem', marginBottom:'2rem' }}>
             {[
-              { label:'Nytt kundvärde per år',    val:fmt(annualNew)+' kr', sub:'från Informas möten',  c:PINK, bg:PINK+'18' },
-              { label:'Ackumulerat värde år '+yrs, val:fmt(maxC)+' kr',     sub:'med förnyelseffekt',   c:'#222', bg:'#f5f5f5' },
-              { label:'Tillväxt år 1 → '+yrs,     val:mult+'×',             sub:'ränta-på-ränta effekt',c:'#222', bg:'#f5f5f5' },
+              { top:PINK, label:'Nytt kundvärde / år', val:fmt(annualNew)+' kr', sub:'från Informas möten', c:PINK, bg:PINK+'10' },
+              { top:'#1a1a1a', label:'Ackumulerat efter år '+yrs, val:fmt(totalVal)+' kr', sub:'inkl. kundretention '+renewal+'%', c:'#1a1a1a', bg:'white' },
+              { top:'#1a1a1a', label:'Intäktsökning år 1 → '+yrs, val:mult+'×', sub:'kumulativ LTV-tillväxt', c:'#1a1a1a', bg:'white' },
             ].map((card,i) => (
-              <div key={i} style={{ background:card.bg, borderRadius:'1rem', padding:'1.1rem 1.4rem' }}>
-                <div style={{ fontSize:'0.63rem', textTransform:'uppercase', letterSpacing:'0.1em', color:card.c, marginBottom:'0.25rem', opacity:0.75 }}>{card.label}</div>
+              <div key={i} style={{ background:card.bg, borderRadius:'1rem', padding:'1.2rem 1.4rem', borderTop:'3px solid '+card.top, boxShadow:'0 1px 14px rgba(0,0,0,0.05)' }}>
+                <div style={{ fontSize:'0.62rem', textTransform:'uppercase', letterSpacing:'0.1em', color:card.c, marginBottom:'0.3rem', opacity:0.7 }}>{card.label}</div>
                 <div style={{ fontSize:'1.45rem', fontWeight:900, color:card.c, lineHeight:1.1 }}>{card.val}</div>
-                <div style={{ fontSize:'0.68rem', color:'#aaa', marginTop:'0.2rem' }}>{card.sub}</div>
+                <div style={{ fontSize:'0.68rem', color:'#bbb', marginTop:'0.15rem' }}>{card.sub}</div>
               </div>
             ))}
           </div>
 
           {/* Chart */}
-          <div style={{ background:'white', borderRadius:'1.2rem', padding:'1.2rem 1rem 0.8rem', boxShadow:'0 2px 20px rgba(0,0,0,0.06)', marginBottom:'1.5rem' }}>
-            <div style={{ fontSize:'0.7rem', fontWeight:600, color:'#ccc', textTransform:'uppercase', letterSpacing:'0.09em', marginBottom:'0.4rem', paddingLeft:'0.5rem' }}>Ackumulerat kundvärde</div>
+          <div style={{ background:'white', borderRadius:'1.5rem', padding:'1.5rem 1rem 0.5rem', boxShadow:'0 4px 32px rgba(0,0,0,0.07)', marginBottom:'1.5rem' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:'1.5rem', paddingLeft:'1rem', marginBottom:'0.5rem' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                <div style={{ width:10, height:10, borderRadius:'50%', background:PINK }}/>
+                <span style={{ fontSize:'0.7rem', color:'#aaa', fontWeight:500 }}>Med Informa</span>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}>
+                <div style={{ width:24, height:2, background:'#ddd', borderRadius:2 }}/>
+                <span style={{ fontSize:'0.7rem', color:'#ccc', fontWeight:500 }}>Utan Informa</span>
+              </div>
+            </div>
             <svg viewBox={`0 0 ${W} ${H}`} style={{ width:'100%', height:'auto' }}>
               <defs>
-                <linearGradient id="roiGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={PINK} stopOpacity="0.28" />
-                  <stop offset="100%" stopColor={PINK} stopOpacity="0.02" />
+                <linearGradient id="roiGrad2" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={PINK} stopOpacity="0.20"/>
+                  <stop offset="100%" stopColor={PINK} stopOpacity="0.01"/>
                 </linearGradient>
               </defs>
               {[0,0.25,0.5,0.75,1].map((f,i) => {
                 const v=maxC*f, yy=yS(v);
                 return (
                   <g key={i}>
-                    <line x1={PL} y1={yy} x2={W-PR} y2={yy} stroke={i===0?'#e8e8e8':'#f4f4f4'} strokeWidth="1"/>
-                    {f>0 && <text x={PL-8} y={yy+4} textAnchor="end" fontSize="9" fill="#ccc">{fmtA(v)}</text>}
+                    <line x1={PL} y1={yy} x2={W-PR} y2={yy} stroke={i===0?'#e4e4e4':'#f5f5f5'} strokeWidth="1"/>
+                    {f>0 && <text x={PL-8} y={yy+4} textAnchor="end" fontSize="9.5" fill="#d0d0d0">{fmtM(v)}</text>}
                   </g>
                 );
               })}
-              <path d={areaPath} fill="url(#roiGrad)"/>
-              <path d={linePath} fill="none" stroke={PINK} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
+              <line x1={PL} y1={yS(0)+1} x2={W-PR} y2={yS(0)+1} stroke="#ddd" strokeWidth="1.5" strokeDasharray="5,4"/>
+              <path d={areaPath} fill="url(#roiGrad2)"/>
+              <path d={linePath} fill="none" stroke={PINK} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round"/>
               {pts.map((p,i) => (
                 <g key={i} style={{ cursor:'pointer' }} onMouseEnter={()=>setHover(i)} onMouseLeave={()=>setHover(null)}>
-                  <text x={p.x} y={H-6} textAnchor="middle" fontSize="11" fill="#ccc">År {p.year}</text>
-                  <circle cx={p.x} cy={p.y} r={hover===i?7:5} fill={PINK} stroke="white" strokeWidth="2" style={{ transition:'r 0.1s' }}/>
+                  <text x={p.x} y={p.y-16} textAnchor="middle" fontSize="10" fontWeight="700" fill={PINK}>{fmtM(p.cumul)}</text>
+                  <text x={p.x} y={H-9} textAnchor="middle" fontSize="11" fill="#c8c8c8">År {p.year}</text>
+                  <circle cx={p.x} cy={p.y} r={hover===i?8:5.5} fill={PINK} stroke="white" strokeWidth="2.5" style={{ transition:'r 0.12s' }}/>
                   {hover===i && (
                     <g>
-                      <rect x={Math.min(p.x-78,W-PR-158)} y={p.y-72} width={156} height={64} rx="8"
-                        fill="white" stroke="#f0f0f0" strokeWidth="1"
-                        filter="drop-shadow(0 3px 8px rgba(0,0,0,0.08))"/>
-                      <text x={Math.min(p.x,W-PR-80)} y={p.y-52} textAnchor="middle" fontSize="9.5" fill="#bbb">Ackumulerat år {p.year}</text>
-                      <text x={Math.min(p.x,W-PR-80)} y={p.y-33} textAnchor="middle" fontSize="13" fontWeight="700" fill={PINK}>{fmt(p.cumul)} kr</text>
-                      <text x={Math.min(p.x,W-PR-80)} y={p.y-14} textAnchor="middle" fontSize="9.5" fill="#bbb">Årsintäkt: {fmt(p.annualRev)} kr</text>
+                      <rect x={Math.min(p.x-84,W-PR-170)} y={p.y-96} width={168} height={72} rx="10"
+                        fill="white" stroke="#efefef" strokeWidth="1"
+                        filter="drop-shadow(0 6px 16px rgba(0,0,0,0.10))"/>
+                      <text x={Math.min(p.x,W-PR-86)} y={p.y-76} textAnchor="middle" fontSize="8.5" fill="#ccc" fontWeight="600" letterSpacing="0.08em">ACKUMULERAT – ÅR {p.year}</text>
+                      <text x={Math.min(p.x,W-PR-86)} y={p.y-54} textAnchor="middle" fontSize="15" fontWeight="800" fill={PINK}>{fmt(p.cumul)} kr</text>
+                      <line x1={Math.min(p.x,W-PR-86)-50} y1={p.y-42} x2={Math.min(p.x,W-PR-86)+50} y2={p.y-42} stroke="#f0f0f0" strokeWidth="1"/>
+                      <text x={Math.min(p.x,W-PR-86)} y={p.y-28} textAnchor="middle" fontSize="9.5" fill="#bbb">Årsintäkt: {fmt(p.annualRev)} kr</text>
                     </g>
                   )}
                 </g>
@@ -1249,14 +1269,23 @@
             </svg>
           </div>
 
+          {/* Insight */}
+          <div style={{ background:'linear-gradient(135deg,'+PINK+'0d,'+PINK+'05)', border:'1px solid '+PINK+'22', borderRadius:'1.2rem', padding:'1.3rem 1.5rem', marginBottom:'1.5rem' }}>
+            <div style={{ fontSize:'0.62rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.14em', color:PINK, marginBottom:'0.5rem' }}>Kumulativ LTV-effekt</div>
+            <p style={{ fontSize:'0.82rem', color:'#555', lineHeight:1.7, margin:0 }}>
+              Med en kundretention på <strong>{renewal}%</strong> fortsätter varje kund ni vinner via Informa att generera intäkter år efter år — utan extra bearbetningskostnad.
+              Det kumulativa kundvärdet efter {yrs} år är <strong style={{ color:PINK }}>{fmt(totalVal)} kr</strong>, vilket är {mult}× mer än enbart år 1.
+            </p>
+          </div>
+
           {/* Sliders */}
-          <div style={{ background:'white', borderRadius:'1.2rem', padding:'1.5rem', boxShadow:'0 2px 20px rgba(0,0,0,0.06)' }}>
-            <div style={{ fontSize:'0.7rem', fontWeight:600, color:'#ccc', textTransform:'uppercase', letterSpacing:'0.09em', marginBottom:'1.2rem' }}>Justera antaganden</div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem 2.5rem' }}>
+          <div style={{ background:'white', borderRadius:'1.2rem', padding:'1.5rem', boxShadow:'0 2px 20px rgba(0,0,0,0.05)' }}>
+            <div style={{ fontSize:'0.68rem', fontWeight:700, color:'#ccc', textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:'1.3rem' }}>Antaganden</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1.1rem 3rem' }}>
               {sliders.map((s,i) => (
                 <div key={i}>
-                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'0.3rem' }}>
-                    <span style={{ fontSize:'0.77rem', color:'#666' }}>{s.label}</span>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'0.35rem' }}>
+                    <span style={{ fontSize:'0.77rem', color:'#555' }}>{s.label}</span>
                     <span style={{ fontSize:'0.77rem', fontWeight:700, color:PINK }}>{s.disp(s.val)} {s.unit}</span>
                   </div>
                   <input type="range" min={s.min} max={s.max} step={s.step} value={s.val}
@@ -1264,12 +1293,6 @@
                     style={{ width:'100%', accentColor:PINK }}/>
                 </div>
               ))}
-            </div>
-            <div style={{ marginTop:'1.3rem', padding:'0.9rem 1.1rem', background:'#fafafa', borderRadius:'0.8rem', borderLeft:'3px solid '+PINK }}>
-              <span style={{ fontSize:'0.74rem', color:'#777', lineHeight:1.65 }}>
-                <strong style={{ color:'#444' }}>Ränta-på-ränta: </strong>
-                Varje kund Informa hjälper er vinna stannar kvar med {renewal}% sannolikhet nästa år. Det innebär att kundbasen och intäkterna växer år för år — i år {yrs} genererar affärerna {mult}× mer värde än år 1.
-              </span>
             </div>
           </div>
 
