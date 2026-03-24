@@ -1153,6 +1153,7 @@
       const [closeRate, setCloseRate] = useLS("ext_closeRate", 15);
       const [renewal,   setRenewal]   = React.useState(70);
       const [yrs,       setYrs]       = React.useState(5);
+      const [showAdv, setShowAdv] = React.useState(false);
       const [hover,     setHover]     = React.useState(null);
 
       const fmt  = n => new Intl.NumberFormat('sv-SE').format(Math.round(n));
@@ -1188,7 +1189,7 @@
         { label:'Extra möten / mån (Informa)',  val:extraMeet, set:setExtraMeet, min:1,  max:50,      step:1,     unit:'st', disp:v=>v },
         { label:'Genomsnittligt ordervärde',     val:orderVal,  set:setOrderVal,  min:0,  max:2000000, step:10000, unit:'kr', disp:v=>fmt(v) },
         { label:'Avslutningsgrad',               val:closeRate, set:setCloseRate, min:1,  max:80,      step:1,     unit:'%',  disp:v=>v },
-        { label:'Kundretention per år',          val:renewal,   set:setRenewal,   min:10, max:100,     step:5,     unit:'%',  disp:v=>v },
+        { label:'Kundretention per år',          val:renewal,   set:setRenewal,   min:10, max:100,     step:5,     unit:'%',  disp:v=>v, adv:true },
         { label:'Tidshorisont',                  val:yrs,       set:setYrs,       min:2,  max:10,      step:1,     unit:'år', disp:v=>v },
       ];
 
@@ -1197,7 +1198,7 @@
 
           {/* Hero */}
           <div style={{ textAlign:'center', marginBottom:'2rem' }}>
-            <div style={{ fontSize:'0.68rem', fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'0.18em', marginBottom:'0.6rem' }}>Kumulativ LTV-effekt med Informa</div>
+            <div style={{ fontSize:'0.68rem', fontWeight:700, color:'#bbb', textTransform:'uppercase', letterSpacing:'0.18em', marginBottom:'0.6rem' }}>Total affärspotential med Informa</div>
             <div style={{ fontSize:'2.8rem', fontWeight:900, color:'#1a1a1a', lineHeight:1, marginBottom:'0.4rem' }}>{fmt(totalVal)} kr</div>
             <div style={{ fontSize:'0.82rem', color:'#bbb' }}>Ackumulerat kundvärde efter {yrs} år &nbsp;·&nbsp; {mult}× intäktsökning från år 1</div>
           </div>
@@ -1207,7 +1208,7 @@
             {[
               { top:PINK, label:'Nytt kundvärde / år', val:fmt(annualNew)+' kr', sub:'från Informas möten', c:PINK, bg:PINK+'10' },
               { top:'#1a1a1a', label:'Ackumulerat efter år '+yrs, val:fmt(totalVal)+' kr', sub:'inkl. kundretention '+renewal+'%', c:'#1a1a1a', bg:'white' },
-              { top:'#1a1a1a', label:'Intäktsökning år 1 → '+yrs, val:mult+'×', sub:'kumulativ LTV-tillväxt', c:'#1a1a1a', bg:'white' },
+              { top:'#1a1a1a', label:'Intäktsökning år 1 → '+yrs, val:mult+'×', sub:'ackumulerad tillväxt', c:'#1a1a1a', bg:'white' },
             ].map((card,i) => (
               <div key={i} style={{ background:card.bg, borderRadius:'1rem', padding:'1.2rem 1.4rem', borderTop:'3px solid '+card.top, boxShadow:'0 1px 14px rgba(0,0,0,0.05)' }}>
                 <div style={{ fontSize:'0.62rem', textTransform:'uppercase', letterSpacing:'0.1em', color:card.c, marginBottom:'0.3rem', opacity:0.7 }}>{card.label}</div>
@@ -1226,7 +1227,7 @@
               </div>
               <div style={{ display:'flex', alignItems:'center', gap:'0.4rem' }}>
                 <div style={{ width:24, height:2, background:'#ddd', borderRadius:2 }}/>
-                <span style={{ fontSize:'0.7rem', color:'#ccc', fontWeight:500 }}>Utan Informa</span>
+                <span style={{ fontSize:'0.7rem', color:'#ccc', fontWeight:500 }}>Utan retention</span>
               </div>
             </div>
             <svg viewBox={`0 0 ${W} ${H}`} style={{ width:'100%', height:'auto' }}>
@@ -1245,7 +1246,7 @@
                   </g>
                 );
               })}
-              <line x1={PL} y1={yS(0)+1} x2={W-PR} y2={yS(0)+1} stroke="#ddd" strokeWidth="1.5" strokeDasharray="5,4"/>
+              <line x1={pts[0].x} y1={yS(annualNew)+1} x2={pts[pts.length-1].x} y2={yS(annualNew*yrs)+1} stroke="#ddd" strokeWidth="1.5" strokeDasharray="5,4"/>
               <path d={areaPath} fill="url(#roiGrad2)"/>
               <path d={linePath} fill="none" stroke={PINK} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round"/>
               {pts.map((p,i) => (
@@ -1271,18 +1272,18 @@
 
           {/* Insight */}
           <div style={{ background:'linear-gradient(135deg,'+PINK+'0d,'+PINK+'05)', border:'1px solid '+PINK+'22', borderRadius:'1.2rem', padding:'1.3rem 1.5rem', marginBottom:'1.5rem' }}>
-            <div style={{ fontSize:'0.62rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.14em', color:PINK, marginBottom:'0.5rem' }}>Kumulativ LTV-effekt</div>
+            <div style={{ fontSize:'0.62rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.14em', color:PINK, marginBottom:'0.5rem' }}>Ackumulerad kundtillväxt</div>
             <p style={{ fontSize:'0.82rem', color:'#555', lineHeight:1.7, margin:0 }}>
               Med en kundretention på <strong>{renewal}%</strong> fortsätter varje kund ni vinner via Informa att generera intäkter år efter år — utan extra bearbetningskostnad.
-              Det kumulativa kundvärdet efter {yrs} år är <strong style={{ color:PINK }}>{fmt(totalVal)} kr</strong>, vilket är {mult}× mer än enbart år 1.
+              Det ackumulerade kundvärdet efter {yrs} år är <strong style={{ color:PINK }}>{fmt(totalVal)} kr</strong>, vilket är {mult}× mer än enbart år 1.
             </p>
           </div>
 
           {/* Sliders */}
           <div style={{ background:'white', borderRadius:'1.2rem', padding:'1.5rem', boxShadow:'0 2px 20px rgba(0,0,0,0.05)' }}>
-            <div style={{ fontSize:'0.68rem', fontWeight:700, color:'#ccc', textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:'1.3rem' }}>Antaganden</div>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.3rem' }}><div style={{ fontSize:'0.68rem', fontWeight:700, color:'#ccc', textTransform:'uppercase', letterSpacing:'0.12em' }}>Antaganden</div><button onClick={()=>setShowAdv(v=>!v)} style={{ fontSize:'0.72rem', color:PINK, background:'none', border:'none', cursor:'pointer', padding:0, fontWeight:600 }}>{showAdv ? '▴ Dölj' : '▾ Avancerat'}</button></div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1.1rem 3rem' }}>
-              {sliders.map((s,i) => (
+              {sliders.filter(s=>!s.adv||showAdv).map((s,i) => (
                 <div key={i}>
                   <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'0.35rem' }}>
                     <span style={{ fontSize:'0.77rem', color:'#555' }}>{s.label}</span>
@@ -1321,7 +1322,7 @@
                   <svg version='1.1' id='Lager_1' xmlns='http://www.w3.org/2000/svg' xmlnsXlink='http://www.w3.org/1999/xlink' x='0px' y='0px' viewBox='0 0 250 58.7' style={{enableBackground:'new 0 0 250 58.7', height:'32px', width:'auto', display:'block'}} xmlSpace='preserve'><polygon points='7.1,58.1 0,58.1 0,0 7.1,7.4 '/><path d='M59.3,25.1h-5.8v-7.3h5.9C60.3,8.3,65.7,3.4,75.1,3v7.3c-4.5,0.5-7.9,2.4-8.2,7.5c0,0,3.5,0,9.3,0c-2.2,1.8-3.9,3.6-5.1,7.3 h-4.3v33h-7.5L59.3,25.1L59.3,25.1z'/><path d='M116.4,38c0,11.4-9.2,20.6-20.6,20.6S75.1,49.4,75.1,38s9.2-20.6,20.6-20.6S116.4,26.5,116.4,38z M83,38 c0,7.3,5.6,13,12.9,13s12.7-5.8,12.7-13s-5.4-13-12.7-13S83,30.7,83,38z'/><path d='M121.9,37c0-13.4,8.4-19.5,18.2-19.5c2-0.2,4.9-0.1,4.9-0.1s-4.9,4.6-6.3,7.8c-3.9,0.1-8.9,3.6-8.9,11.8v21.1h-7.9L121.9,37 L121.9,37z'/><path d='M49.7,58.1H42V36.5c0-8-3.4-11.7-9.6-11.7s-9.6,3.8-9.6,11.7v21.6h-7.7V36.5c0-13.2,7.2-19.2,17.2-19.2s17.2,6,17.2,19.2 V58.1z'/><g><path d='M178.9,58.1h-7.7V36.5c0-8-3.4-11.7-9.6-11.7s-9.6,3.8-9.6,11.7v21.6h-7.7V36.5c0-13.2,7.2-19.2,17.2-19.2 c10,0,17.2,6,17.2,19.2V58.1z'/><path d='M187.5,17.3c-3.9,0-7.4,0.9-10.1,2.8c1.6,1.8,2.9,4.1,3.7,6.9c1.6-1.5,3.8-2.2,6.4-2.2c6.1,0,9.6,3.8,9.6,11.7v21.6h7.7 V36.5C204.8,23.4,197.6,17.3,187.5,17.3L187.5,17.3z'/></g><path d='M229.1,25c-3.2,0-6.1,1.1-8.3,3c-2.6,2.3-4.2,5.7-4.2,9.6l0,0.4c0,7.3,5.6,13.1,12.9,13.1c3.8,0,9.5,0,9.5,0v7.4 c0,0-5.9,0.2-9.5,0.2c-11.4,0-20.7-9.2-20.7-20.7s9.3-20.7,20.7-20.7c11.4,0,20.6,9.2,20.6,20.7v20h-7.8V38 c0-7.3-5.4-13.1-12.7-13.1L229.1,25L229.1,25z'/></svg>
                 </div>
                 <nav style={{ display:"flex", background:"#EFEFEF", borderRadius:"2rem", padding:"4px", gap:"2px" }}>
-                  {[{id:"external",label:"För kunder"},{id:"offer",label:"ROI-Kalkyl"},{id:"graf",label:"ROI + Graf"},{id:"internal",label:"Intern"}].map(function(item) {
+                  {[{id:"external",label:"För kunder"},{id:"offer",label:"ROI-Kalkyl"},{id:"graf",label:"ROI + Graf"},{id:"internal",label:"Säljstöd"}].map(function(item) {
                     return (
                       <button key={item.id} type="button" onClick={() => setTab(item.id)}
                         style={{ padding:"0.45rem 1.25rem", borderRadius:"2rem", border:"none",
