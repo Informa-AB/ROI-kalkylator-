@@ -1016,7 +1016,7 @@
           return cap(pgs[0]).then(function(c1) {
             pdf.addImage(c1.toDataURL('image/jpeg',0.93),'JPEG',0,0,210,297);
             document.body.removeChild(container);
-            pdf.save('Informa-offert-' + now.toLocaleDateString('sv-SE') + '.pdf');
+            pdf.save('Informa-ROI-kalkyl-' + now.toLocaleDateString('sv-SE') + '.pdf');
             setToast(null);
           });
         }).catch(function() {
