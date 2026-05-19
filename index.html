@@ -282,6 +282,52 @@
       );
     }
 
+    // ────────── Number input (free manual entry, no slider) ───────────────────
+    function NumberInput({ label, value, onChange, suffix="", min, max, step=1, hint }) {
+      const onNum = e => {
+        const raw = e.target.value;
+        if (raw === "") { onChange(0); return; }
+        const v = Number(raw);
+        if (isNaN(v)) return;
+        let next = v;
+        if (typeof min === "number") next = Math.max(min, next);
+        if (typeof max === "number") next = Math.min(max, next);
+        onChange(next);
+      };
+      return (
+        <div style={{ marginBottom:"1.25rem" }}>
+          <div style={{ marginBottom:"0.4rem", display:"flex", alignItems:"baseline", justifyContent:"space-between", gap:"0.5rem" }}>
+            <span style={{ fontSize:"0.84rem", fontWeight:600, color:"#374151" }}>{label}</span>
+            {hint && <span style={{ fontSize:"0.7rem", color:"#9CA3AF" }}>{hint}</span>}
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:"0.5rem" }}>
+            <input
+              type="number"
+              value={value}
+              step={step}
+              onChange={onNum}
+              onFocus={e => e.target.select()}
+              className="no-spin"
+              style={{
+                flex: 1,
+                maxWidth: "10rem",
+                padding:"0.55rem 0.75rem",
+                borderRadius:"0.5rem",
+                border:"1.5px solid #E5E7EB",
+                fontSize:"0.95rem",
+                fontWeight:700,
+                color:PINK,
+                textAlign:"right",
+                fontFamily:"inherit",
+                background:"#FAFAFA",
+              }}
+            />
+            {suffix && <span style={{ fontSize:"0.85rem", color:"#9CA3AF", fontWeight:500, whiteSpace:"nowrap" }}>{suffix}</span>}
+          </div>
+        </div>
+      );
+    }
+
     // ────────── PIN screen with lockout ────────────────────────────────────────
     function PinScreen({ onUnlock }) {
       const [pin,       setPin]       = useState("");
@@ -762,15 +808,15 @@
                 </p>
                 {isPM ? (
                   <React.Fragment>
-                    <SliderInput label="Möten vi kan leverera per månad" value={meet} min={5} max={50} onChange={setMeet} suffix="st" />
-                    <SliderInput label="Pris per möte" value={price} min={1000} max={10000} step={100} onChange={setPrice} suffix="kr" />
-                    <SliderInput label="Kostnad för leverans per möte" value={cCost} min={500} max={5000} step={100} onChange={setCCost} suffix="kr" />
+                    <NumberInput label="Möten vi kan leverera per månad" value={meet} min={0} onChange={setMeet} suffix="st" />
+                    <NumberInput label="Pris per möte" value={price} min={0} onChange={setPrice} suffix="kr" />
+                    <NumberInput label="Kostnad för leverans per möte" value={cCost} min={0} onChange={setCCost} suffix="kr" />
                   </React.Fragment>
                 ) : (
                   <React.Fragment>
-                    <SliderInput label="Timmar per månad" value={hours} min={5} max={160} step={5} onChange={setHours} suffix="tim" />
-                    <SliderInput label="Timpris" value={hRate} min={200} max={3000} step={50} onChange={setHRate} suffix="kr" />
-                    <SliderInput label="Kostnad per timme (leverans)" value={hCost} min={100} max={2000} step={50} onChange={setHCost} suffix="kr" />
+                    <NumberInput label="Timmar per månad" value={hours} min={0} onChange={setHours} suffix="tim" />
+                    <NumberInput label="Timpris" value={hRate} min={0} onChange={setHRate} suffix="kr" />
+                    <NumberInput label="Kostnad per timme (leverans)" value={hCost} min={0} onChange={setHCost} suffix="kr" />
                   </React.Fragment>
                 )}
               </div>
@@ -778,9 +824,9 @@
               {/* Gemensamma fält */}
               <div style={{ borderTop:"1px solid #F0F0F0", paddingTop:"1.25rem" }}>
                 <p style={{ margin:"0 0 1rem", fontSize:"0.78rem", fontWeight:700, color:"#374151", textTransform:"uppercase", letterSpacing:"0.05em" }}>Gemensamt</p>
-                <SliderInput label="Teknikavgift" value={techFee} min={0} max={15000} step={100} onChange={setTechFee} suffix="kr/mån" />
-                <SliderInput label="Startkostnad (engångsavgift)" value={startCost} min={0} max={50000} step={500} onChange={setStartCost} suffix="kr" />
-                <SliderInput label="Uppskattad kontraktslängd" value={cLen} min={3} max={24} onChange={setCLen} suffix="mån" />
+                <NumberInput label="Teknikavgift" value={techFee} min={0} onChange={setTechFee} suffix="kr/mån" />
+                <NumberInput label="Startkostnad (engångsavgift)" value={startCost} min={0} onChange={setStartCost} suffix="kr" />
+                <NumberInput label="Uppskattad kontraktslängd" value={cLen} min={1} onChange={setCLen} suffix="mån" />
               </div>
             </div>
 
